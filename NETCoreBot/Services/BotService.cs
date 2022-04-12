@@ -35,6 +35,7 @@ namespace NETCoreBot.Services
         decimal woodrewards = 0;
         decimal stonerewards = 0;
         decimal HeatCap = 6000;
+        int maxTicks = 2500;
         decimal campfiresthiscycle = 0;
         bool Haveeverything = false;
         bool expand = false;
@@ -43,6 +44,7 @@ namespace NETCoreBot.Services
         int MaxPOp = 0;
         int popBoomCalcStart = 2000;
         int popBoom = 9999999;
+        bool singleplayer = false;
         public BotService()
         {
             _playerAction = new CommandAction();
@@ -66,7 +68,7 @@ namespace NETCoreBot.Services
 
             PlayerCommand playerCommand = new PlayerCommand();
             playerCommand.PlayerId = this._bot.Id;
-           
+            singleplayer = this._gameState.Bots.Count == 1;
             var dto = this._gameState.Bots.FirstOrDefault(go => go.Id == _bot.Id);
             var _previousstate = this._previousstate;
             this._previousstate = dto;
@@ -80,7 +82,7 @@ namespace NETCoreBot.Services
                     MaxPOp = dto.Population;
 
                 if (dto.Tick % 10 == 1)
-                    Console.WriteLine($"\r\n{DateTime.Now: HH:mm:ss ffff} Population: {dto.Population} Units: {dto.AvailableUnits} Traveling {dto.TravellingUnits} NODES { this._gameState.World.Map.Nodes.Count} TICK {dto.Tick}\r\n" +
+                    Console.WriteLine($"\r\n{DateTime.Now: HH:mm:ss ffff} Population: {dto.Population} Units: {dto.AvailableUnits} Traveling {dto.TravellingUnits} NODES { this._gameState.World.Map.Nodes.Count} TICK {dto.Tick} HEATCAP {HeatCap}\r\n" +
                         $"Food: {dto.Food} Wood: {dto.Wood} Stone: {dto.Stone} gold: ???? Heat: {dto.Heat}\r\n" +
                         $"Farm: {dto.FarmingUnits} Lumb: {dto.LumberingUnits} Mines: {dto.MiningUnits} gold: ???? scout: {dto.ScoutingUnits}"
 
@@ -269,7 +271,31 @@ namespace NETCoreBot.Services
                                     heatunits = units;
                                 
                                 //dto.Food
+                                if (singleplayer && dto.Tick<maxTicks)
+                                {
+                                    //set the heatcap according to available food
 
+                                    if (dto.Tick>1000 && UnscoutedTowers() && units>0)
+                                    {
+                                        var Result = Scout(units);
+                                        if (Result.Count > 0)
+                                            playerCommand.Actions.AddRange(Result);
+                                    }
+
+                                    decimal ticketsleft = maxTicks - dto.Tick;
+                                    if (ticketsleft > 400)
+                                    {
+                                        ticketsleft += 500;
+                                    }                                    
+                                    decimal availablefood = ownNodes.Where(m => m.Type == ResourceType.Food).Sum(m => m.Amount);
+                                    decimal FoodPerTicket = ownNodes.Where(m => m.Type == ResourceType.Food && m.Amount<nodes[m.Id].maxamount).Sum(m => m.RegenerationRate.Amount/m.RegenerationRate.Ticks);
+                                    decimal Totalfood = dto.Food+ availablefood+ (FoodPerTicket * ticketsleft);
+                                    decimal SustainPop = Totalfood / (ticketsleft / 10); ;
+                                   
+                                    if (dto.Tick%10==1)
+                                    Console.WriteLine($"ticksleft: {ticketsleft} ReadyFood {availablefood} RegenFood {FoodPerTicket} TotalFood {Totalfood} SustainPop {SustainPop}");
+                                    HeatCap = SustainPop*2m ;
+                                }
                                 if (dto.Tick>popBoomCalcStart && dto.Tick%10==0 && popBoom>dto.Tick)
                                 {
                                     decimal totalpop = dto.Population;
@@ -291,22 +317,22 @@ namespace NETCoreBot.Services
                                         popBoom = dto.Tick;
                                     }
                                 }
-                                if (popBoom < dto.Tick)
-                                {
-                                    //popBoom = dto.Tick;
-                                    Console.WriteLine("----------------------------------------------------------------------------------------------------------------------------------");
-                                    HeatCap *= 1.05m;
-                                    if (popBoom == dto.Tick)
-                                    {
-                                        foodunits = (int)Math.Floor((double)(units * (ff / TotalWeight)));
-                                        heatunits += foodunits;
-                                        foodunits = 0;
-                                    }
-                                    ff = 0;
-                                    if (dto.Stone >= 1043)
-                                        sf = 0;
-                                    TotalWeight = hf + wf + sf;
-                                }
+                                //if (popBoom < dto.Tick)
+                                //{
+                                //    //popBoom = dto.Tick;
+                                //    //Console.WriteLine("----------------------------------------------------------------------------------------------------------------------------------");
+                                //    HeatCap *= 1.05m;
+                                //    if (popBoom == dto.Tick)
+                                //    {
+                                //        foodunits = (int)Math.Floor((double)(units * (ff / TotalWeight)));
+                                //        heatunits += foodunits;
+                                //        foodunits = 0;
+                                //    }
+                                //    ff = 0;
+                                //    if (dto.Stone >= 1043)
+                                //        sf = 0;
+                                //    TotalWeight = hf + wf + sf;
+                                //}
                                 //TotalUnits -= heatunits;
 
                                 if (dto.Heat>= HeatCap )
@@ -314,7 +340,8 @@ namespace NETCoreBot.Services
                                     //units += heatunits;
                                     //TotalUnits += heatunits;
                                     heatunits = 0;
-                                    HeatCap *= 1.015m;
+                                    if (!singleplayer)
+                                        HeatCap *= 1.015m;
                                     /*if (campfiresthiscycle > populationCap / campfirereward)
                                     {
                                         units += heatunits;
@@ -379,9 +406,9 @@ namespace NETCoreBot.Services
                                 {
 
                                 }
-                                Console.WriteLine($"ff: {ff:0.0000}\twf: {wf:0.0000}\tsf: {sf:0.0000}\thf: {hf:0.0000}\r\n" +
+                                /*Console.WriteLine($"ff: {ff:0.0000}\twf: {wf:0.0000}\tsf: {sf:0.0000}\thf: {hf:0.0000}\r\n" +
                                 $"fu: {foodunits:00000}\tww: {woodunits:00000}\tsf: {stoneunits:00000}\thu: {heatunits:00000}\r\n");
-                                
+                                */
                             }
                             else
                             {   
@@ -431,6 +458,8 @@ namespace NETCoreBot.Services
                                 }
                                 index++;
                             }
+                            if (foodunits > 0)
+                                woodunits += foodunits;
                             index=0;
                             while (woodunits > 0 && index < Woods.Count)
                             {
@@ -456,6 +485,8 @@ namespace NETCoreBot.Services
                                 }
                                 index++;
                             }
+                            if (woodunits > 0)
+                                stoneunits += woodunits;
                             index = 0;
                             while (stoneunits > 0 && index < Stones.Count)
                             {
@@ -760,7 +791,7 @@ namespace NETCoreBot.Services
         public List<NodeInstruction> PendingInstructions { get; set; }
         public int Units { get; set; }
         ActionType action = ActionType.Error;
-        int maxamount = 0;
+        internal int maxamount = 0;
         public int Remaining { get; private set; }
         public int TravelTime { get; set; }
         public nodestate(ResourceNode node, decimal Distance)
