@@ -3,7 +3,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net5.0</TargetFramework>
-    <AssemblyName>BitchAssBot</AssemblyName>
+    <AssemblyName>NETCoreBot</AssemblyName>
     <RootNamespace>BitchAssBot</RootNamespace>
   </PropertyGroup>
 
