@@ -1,8 +1,8 @@
-﻿using NETCoreBot.Enums;
+﻿using BitchAssBot.Enums;
 using System;
 using System.Collections.Generic;
 
-namespace NETCoreBot.Models
+namespace BitchAssBot.Models
 {
     public class GameObject
     {

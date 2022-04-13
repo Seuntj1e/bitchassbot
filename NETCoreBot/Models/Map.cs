@@ -2,7 +2,7 @@
 using Newtonsoft.Json;
 using System.Collections.Generic;
 
-namespace NETCoreBot.Models
+namespace BitchAssBot.Models
 {
     public class Map
     {

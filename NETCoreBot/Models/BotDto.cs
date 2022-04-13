@@ -1,10 +1,10 @@
 ﻿using Domain.Models;
-using NETCoreBot.Enums;
+using BitchAssBot.Enums;
 using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace NETCoreBot.Models
+namespace BitchAssBot.Models
 {
     public class BotDto
     {

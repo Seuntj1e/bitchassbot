@@ -1,4 +1,4 @@
-﻿namespace NETCoreBot.Models
+﻿namespace BitchAssBot.Models
 {
     public class Position
     {

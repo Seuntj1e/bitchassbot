@@ -1,8 +1,8 @@
 using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.Configuration;
-using NETCoreBot.Enums;
-using NETCoreBot.Models;
-using NETCoreBot.Services;
+using BitchAssBot.Enums;
+using BitchAssBot.Models;
+using BitchAssBot.Services;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -11,7 +11,7 @@ using Microsoft.Extensions.Logging;
 using Domain.Models;
 using System.Diagnostics;
 
-namespace NETCoreBot
+namespace BitchAssBot
 {
     public class Program
     {

@@ -3,7 +3,7 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 
-namespace NETCoreBot.Models
+namespace BitchAssBot.Models
 {
     public class GameStateDto
     {

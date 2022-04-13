@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 using Newtonsoft.Json;
-using NETCoreBot.Enums;
+using BitchAssBot.Enums;
 
 namespace Domain.Models
 {

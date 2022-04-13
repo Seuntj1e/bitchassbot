@@ -1,11 +1,11 @@
 ﻿using Domain.Models;
-using NETCoreBot.Enums;
-using NETCoreBot.Models;
+using BitchAssBot.Enums;
+using BitchAssBot.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace NETCoreBot.Services
+namespace BitchAssBot.Services
 {
     public class BotService
     {

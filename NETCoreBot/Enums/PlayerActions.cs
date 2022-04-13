@@ -1,4 +1,4 @@
-﻿namespace NETCoreBot.Enums
+﻿namespace BitchAssBot.Enums
 {
     public enum PlayerActions
     {

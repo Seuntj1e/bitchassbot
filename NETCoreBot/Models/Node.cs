@@ -1,5 +1,5 @@
-using NETCoreBot.Enums;
-using NETCoreBot.Models;
+using BitchAssBot.Enums;
+using BitchAssBot.Models;
 
 namespace Domain.Models
 {

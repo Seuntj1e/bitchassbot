@@ -1,7 +1,7 @@
-﻿using NETCoreBot.Enums;
+﻿using BitchAssBot.Enums;
 using System;
 
-namespace NETCoreBot.Models
+namespace BitchAssBot.Models
 {
     public class PlayerAction
     {
