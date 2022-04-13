@@ -25,7 +25,7 @@ namespace NETCoreBot
             //    Process process; 
             //    string strCmdText = @"bash C:\Users\seunt\Downloads\starter-pack\starter-pack\run.sh"; 
             //    process = new ProcessstrCmdText);                 
-            //    //process.StartInfo.FileName = strCmdText; 
+            //    ///process.StartInfo.FileName = strCmdText; 
             //    process.StartInfo.UseShellExecute = true;                 
             //    //process.StartInfo.CreateNoWindow = true;
             //    process.Start();
