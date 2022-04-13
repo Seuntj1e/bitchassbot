@@ -69,7 +69,7 @@ namespace NETCoreBot
                                 Console.WriteLine("Disconnected:");
                                 botService.PrintFinal();
                                 connection.StopAsync();
-                                connection.DisposeAsync();
+                                connection.DisposeAsync();                                
                             });
                         connection.On<Guid>(
                             "Registered",
@@ -94,6 +94,12 @@ namespace NETCoreBot
                                 gameState.Bots = gameStateDto.Bots;
 
                                 botService.SetGameState(gameState);
+                                var bot = botService.GetBot();
+                                if (botService.GetGameState().World != null)
+                                {
+                                    //botService.ComputeNextPlayerAction(botService.GetPlayerCommand());
+                                    connection.InvokeAsync("SendPlayerCommand", botService.GetPlayerCommand());
+                                }
                             });
 
                         var token = Environment.GetEnvironmentVariable("REGISTRATION_TOKEN");
@@ -109,17 +115,17 @@ namespace NETCoreBot
                            // Console.WriteLine($"ConState: {connection.State}");
                            // Console.WriteLine($"Bot: {botService.GetBot()?.Id.ToString()}");
 
-                            var bot = botService.GetBot();
-                            if (bot == null)
-                            {
-                                continue;
-                            }
+                            //var bot = botService.GetBot();
+                            //if (bot == null)
+                            //{
+                            //    continue;
+                            //}
 
-                            if (botService.GetGameState().World != null)
-                            {
-                                //botService.ComputeNextPlayerAction(botService.GetPlayerCommand());
-                                connection.InvokeAsync("SendPlayerCommand", botService.GetPlayerCommand());
-                            }
+                            //if (botService.GetGameState().World != null)
+                            //{
+                            //    //botService.ComputeNextPlayerAction(botService.GetPlayerCommand());
+                            //    connection.InvokeAsync("SendPlayerCommand", botService.GetPlayerCommand());
+                            //}
                         }
                     });
         }
