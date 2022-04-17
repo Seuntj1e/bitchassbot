@@ -92,7 +92,7 @@ namespace BitchAssBot
                                 var gameState = new GameState { World = null, Bots = new List<BotDto>() };
                                 gameState.World = gameStateDto.World;
                                 gameState.Bots = gameStateDto.Bots;
-
+                                gameState.PopulationTiers = gameStateDto.PopulationTiers;
                                 botService.SetGameState(gameState);
                                 var bot = botService.GetBot();
                                 if (botService.GetGameState().World != null)

@@ -40,7 +40,7 @@ namespace BitchAssBot.Services
         bool Haveeverything = false;
         bool expand = false;
         int lastindex = 0;
-        ResourceType[] resourcerotation = new ResourceType[] { ResourceType.Food, ResourceType.Wood, ResourceType.Heat, ResourceType.Stone };
+        ResourceType[] resourcerotation = new ResourceType[] { ResourceType.Food, ResourceType.Food, ResourceType.Wood, ResourceType.Food, ResourceType.Food, ResourceType.Wood, ResourceType.Heat, ResourceType.Stone };
         int MaxPOp = 0;
         int popBoomCalcStart = 2000;
         int popBoom = 9999999;
@@ -100,8 +100,13 @@ namespace BitchAssBot.Services
                 var foods2 = nodes.Values.Where(m => m.Node.Type == ResourceType.Food).ToList();
                 //foodremaining= foods.Sum(m => m.Remaining) ;
                 foodamount = foods2.Sum(m => m.Node.Amount);
-                if (_gameState.World.Map.Nodes.Count>250 && booming)
-                    booming = foodamount > 50000;
+                
+                var Woods = tmpNodes.Where(m => m.Node.Type == ResourceType.Wood && m.Remaining > 00).ToList(); ;
+                var Stones = tmpNodes.Where(m => m.Node.Type == ResourceType.Stone && m.Remaining > 00).ToList(); ;
+                decimal woodamount = Woods.Sum(m => m.Remaining);
+                decimal stoneamount = Stones.Sum(m => m.Remaining);
+                if (_gameState.World.Map.Nodes.Count>250 && booming )
+                    booming = foodamount > 150000 && woodamount > 1000;
 
 
                 if (dto.Tick % 10 == 1)
@@ -111,7 +116,7 @@ namespace BitchAssBot.Services
                         $"foodremaining {foodremaining} foodamount {foodamount} {(booming ? "BOOMING" : "")}"
 
                         );
-
+               
 
                 if (_bot.Tick - _previousstate.Tick>1)
                 {
@@ -203,30 +208,34 @@ namespace BitchAssBot.Services
                     if (ownNodes.Count()>0 && GetDistance(ownNodes.FirstOrDefault()) < 5)
                     {
 
-                        if (Haveeverything && dto.Population>50)
+                        if (Haveeverything && dto.Population>=50 || dto.CurrentTierLevel>0)
                         {
-                            
 
                             var foods = tmpNodes.Where(m => m.Node.Type == ResourceType.Food && m.Remaining > 1000).ToList();
+
+
                             foodrewards = foods.Count() > 0 ? foods.Sum(m => m.Reward):foodrewards;
                             fooddays = foods.Count() > 0 ? foods.Sum(m => m.TravelTime) : fooddays;
                             decimal m = (foodrewards / fooddays * (decimal)cycle); 
                             decimal ff = ((decimal)foodconsumption*1.2m ) / m;
                             
 
-                            var Woods = tmpNodes.Where(m => m.Node.Type == ResourceType.Wood && m.Remaining > 00).ToList(); ;
+                            
                             woodrewards = Woods.Count()>0? Woods.Sum(m => m.Reward) : woodrewards ;
                             wooddays = Woods.Count() > 0 ? Woods.Sum(m => m.TravelTime): wooddays;
                             decimal n = woodrewards / wooddays * (decimal)cycle;
-                            decimal woodcon2 = woodconsumption + (dto.Tick<1000?0.1m: (campfirecost / campfirereward));
+                            decimal woodcon2 = woodconsumption + (dto.Population<_gameState.PopulationTiers[3].MaxPopulation?0.1m: (campfirecost / campfirereward));
                             decimal wf = ((decimal)woodcon2) / n;
 
-                            var Stones = tmpNodes.Where(m => m.Node.Type == ResourceType.Stone && m.Remaining > 00).ToList(); ;
-                            stonerewards = Stones.Count() > 0 ? Stones.Sum(m => m.Reward) : stonerewards;
-                            stonedays = Stones.Count() > 0 ? Stones.Sum(m => m.TravelTime) : stonedays;
-                            decimal o =  stonerewards / stonedays * (decimal)cycle;
-                            decimal sf = ((decimal)stoneconsumption) / o;
-
+                            
+                            decimal sf = 0;
+                            if (dto.Stone<= _gameState.PopulationTiers.Max(m=>m.TierResourceConstraints.Stone))
+                            {
+                                stonerewards = Stones.Count() > 0 ? Stones.Sum(m => m.Reward) : stonerewards;
+                                stonedays = Stones.Count() > 0 ? Stones.Sum(m => m.TravelTime) : stonedays;
+                                decimal o = stonerewards / stonedays * (decimal)cycle;
+                                 sf = (stoneconsumption) / o;
+                            }
                            
                            
 
@@ -302,11 +311,11 @@ namespace BitchAssBot.Services
                                     }                                    
                                     decimal availablefood = ownNodes.Where(m => m.Type == ResourceType.Food).Sum(m => m.Amount);
                                     decimal FoodPerTicket = ownNodes.Where(m => m.Type == ResourceType.Food && m.Amount<nodes[m.Id].maxamount).Sum(m => m.RegenerationRate.Amount/m.RegenerationRate.Ticks);
-                                    decimal Totalfood = dto.Food+ availablefood+ (singleplayer?(FoodPerTicket * ticketsleft):0);
+                                    decimal Totalfood = dto.Food+ availablefood+ (FoodPerTicket * ticketsleft);
                                     decimal SustainPop = Totalfood / (ticketsleft / 10); ;
                                    
-                                    if (dto.Tick%10==1)
-                                        Console.WriteLine($"ticksleft: {ticketsleft} ReadyFood {availablefood} RegenFood {FoodPerTicket} TotalFood {Totalfood} SustainPop {SustainPop}");
+                                    /*if (dto.Tick%10==1)
+                                        Console.WriteLine($"ticksleft: {ticketsleft} ReadyFood {availablefood} RegenFood {FoodPerTicket} TotalFood {Totalfood} SustainPop {SustainPop}");*/
                                     HeatCap = SustainPop*2m ;
                                 }
 
@@ -352,6 +361,8 @@ namespace BitchAssBot.Services
                                 //TotalUnits -= heatunits;
                                 if (booming)
                                     HeatCap = 60000;
+                                if (woodamount < 1000 || stoneamount < 1000)
+                                    HeatCap = 50;
                                 if (dto.Heat>= HeatCap)
                                 {
                                    
@@ -374,6 +385,10 @@ namespace BitchAssBot.Services
                                         heatunits = newheatunits;
                                     }*/
                                 }
+                                else if ( dto.Heat+(heatunits*Heatrewards)>HeatCap)
+                                {                                    
+                                    heatunits =(int)((HeatCap-dto.Heat) / Heatrewards);
+                                }
                                 campfiresthiscycle += heatunits;
                                 if (dto.Wood < heatunits * campfirecost)
                                 {
@@ -384,32 +399,23 @@ namespace BitchAssBot.Services
                                 }
                                 units -= heatunits;
 
-                                /* decimal TotalFood = (decimal)Math.Floor((double)(TotalUnits * (ff / TotalWeight)));
-                                 decimal Totalwoodunits = (decimal)Math.Floor((double)(TotalUnits * (wf / TotalWeight)));
-                                 decimal Totalstoneunits = (decimal)Math.Floor((double)(TotalUnits * (sf / TotalWeight)));
-                                 decimal tmpTotal = TotalFood + Totalwoodunits + Totalstoneunits + heatunits;
-                                 decimal scale =   Math.Min((decimal)dto.Population/tmpTotal,1) ;
-                                 //if (units> TotalFood)
-                                 if (units > 0)
-                                 {
-                                     foodunits = (int)Math.Min(Math.Max(Math.Floor(scale * (TotalFood - pendingfood)), 0),units);
-                                     units -= foodunits;
-                                 }
-                                 if (units > 0)
-                                 {
-                                     woodunits = (int)Math.Min(Math.Max(Math.Floor(scale * (Totalwoodunits - pendingWood)),0), units);
-                                     units -= woodunits;
-                                 }
-                                 if (units > 0)
-                                 {
-                                     stoneunits = (int)Math.Min(Math.Max(Math.Floor(scale * (Totalstoneunits - pendingStone)),0), units);
-                                     units -= stoneunits;
-                                 }*/
 
-                                foodunits = (int)Math.Floor((double)(units * (ff / TotalWeight)));
-                                woodunits = (int)Math.Floor((double)(units * (wf / TotalWeight)));
-                                stoneunits = (int)Math.Floor((double)(units * (sf / TotalWeight)));
+
+
+                                if (!booming && woodamount > 10000)
+                                {
+                                    woodunits = units;
+                                }
+                                else
+                                {
+                                    foodunits = (int)Math.Floor((double)(units * (ff / TotalWeight)));
+                                    if (woodamount > 0)
+                                        woodunits = (int)Math.Floor((double)(units * (wf / TotalWeight)));
+                                    if (stoneamount > 0)
+                                        stoneunits = (int)Math.Floor((double)(units * (sf / TotalWeight)));
+                                }
                                 units -= foodunits + woodunits + stoneunits;
+                                
                                 //units -= foodunits + woodunits + stoneunits;
                                 if (units > 0)
                                 {
@@ -426,8 +432,9 @@ namespace BitchAssBot.Services
                                 {
 
                                 }
-                               /* Console.WriteLine($"ff: {ff:0.0000}\twf: {wf:0.0000}\tsf: {sf:0.0000}\thf: {hf:0.0000}\r\n" +
-                                $"fu: {foodunits:00000}\tww: {woodunits:00000}\tsf: {stoneunits:00000}\thu: {heatunits:00000}\r\n");
+                                /*
+                                Console.WriteLine($"ff: {ff:0.0000}\twf: {wf:0.0000}\tsf: {sf:0.0000}\thf: {hf:0.0000}\r\n" +
+                                $"fu: {foodunits:00000}\twu: {woodunits:00000}\tsu: {stoneunits:00000}\thu: {heatunits:00000}\r\n");
                                 */
                             }
                             else
@@ -640,7 +647,7 @@ namespace BitchAssBot.Services
                                     case ResourceType.Wood: woodunits++; units--; break;
                                     case ResourceType.Heat: stoneunits++; units--; break;//actually stone
                                 }
-                                if (lastindex > (dto.Population>20?2:1))
+                                if (lastindex > (dto.Population>20?6:5))
                                     lastindex = 0;
                             }
                             if (foodunits>0)
@@ -663,13 +670,20 @@ namespace BitchAssBot.Services
                             if (stoneunits > 0)
                             {
                                 var closestnode = tmpNodes.FirstOrDefault(m => m.Node.Type == ResourceType.Stone && m.Remaining > stoneunits);
-                                var tmpAction = MineNode(closestnode.Node, ref stoneunits);
-                                if (tmpAction != null)
-                                    playerCommand.Actions.Add(tmpAction);
-                                units -= stoneunits;
+                                if (closestnode != null)
+                                {
+                                    var tmpAction = MineNode(closestnode.Node, ref stoneunits);
+                                    if (tmpAction != null)
+                                        playerCommand.Actions.Add(tmpAction);
+                                    units -= stoneunits;
+                                }
+                                else
+                                {
+                                    playerCommand.Actions.AddRange(Scout(stoneunits));
+                                }
                             }
 
-                            if (dto.Wood > 10 && dto.Food > 10 && !expand && woodconsumption > 0)                                
+                            if (dto.Wood > 5 && dto.Food > 5 && !expand && woodconsumption > 0)                                
                             {
 
                                 //create a campfire
@@ -710,6 +724,7 @@ namespace BitchAssBot.Services
                 $"Food:  regen {_gameState.World.Map.Nodes.Where(m => m.Type == ResourceType.Food).Sum(m => m.RegenerationRate.Amount/ m.RegenerationRate.Ticks )} remaining {_gameState.World.Map.Nodes.Where(m=>m.Type == ResourceType.Food).Sum(m=>m.Amount)}\r\n" +
                 $"Wood: {_gameState.World.Map.Nodes.Where(m => m.Type == ResourceType.Wood).Count()} - {_gameState.World.Map.Nodes.Where(m => m.Type == ResourceType.Wood).Sum(m => m.Amount)}\r\n" +
                 $"Stone: {_gameState.World.Map.Nodes.Where(m => m.Type == ResourceType.Stone).Count()} - {_gameState.World.Map.Nodes.Where(m => m.Type == ResourceType.Stone).Sum(m => m.Amount)}\r\n");
+            Console.WriteLine(Newtonsoft.Json.JsonConvert.SerializeObject(_bot));
         }
 
         int scouts = 0;
@@ -751,7 +766,7 @@ namespace BitchAssBot.Services
                 if (i + 1 == tmpTowers.Count())
                     scouts++;
             }
-            if (scouts > 3)
+            if (scouts > 1)
                 scouts = 0;
             return actions;
         }
