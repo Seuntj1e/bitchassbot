@@ -9,10 +9,14 @@ namespace BitchAssBot.Services
 {
     public class BotService
     {
+        static bool console = false;
+        static bool logging = false;
+
         private BotDto _bot;
         private CommandAction _playerAction;
         private PlayerCommand _playerCommand;
         private GameState _gameState;
+        public static EngineConfigDto _engineConfigDto;
 
         Dictionary<Guid, nodestate> nodes = new Dictionary<Guid, nodestate>();
         Dictionary<Guid,int> towers = new Dictionary<Guid, int>();
@@ -35,12 +39,14 @@ namespace BitchAssBot.Services
         decimal woodrewards = 0;
         decimal stonerewards = 0;
         decimal HeatCap = 6000;
+        decimal UnitScoreCost = 0;
+        long totalticks = 0;
         int maxTicks = 2500;
         decimal campfiresthiscycle = 0;
         bool Haveeverything = false;
         bool expand = false;
         int lastindex = 0;
-        ResourceType[] resourcerotation = new ResourceType[] { ResourceType.Food, ResourceType.Food, ResourceType.Wood, ResourceType.Food, ResourceType.Food, ResourceType.Wood, ResourceType.Heat, ResourceType.Stone };
+        ResourceType[] resourcerotation = new ResourceType[] { ResourceType.Wood, ResourceType.Food,   ResourceType.Food, ResourceType.Wood, ResourceType.Food,  ResourceType.Heat, ResourceType.Food, ResourceType.Stone };
         int MaxPOp = 0;
         int popBoomCalcStart = 2000;
         int popBoom = 9999999;
@@ -52,8 +58,8 @@ namespace BitchAssBot.Services
             _playerCommand = new PlayerCommand();
             _gameState = new GameState();
             _bot = new BotDto();
-           
-            
+            _engineConfigDto = new EngineConfigDto();
+
         }
 
         public BotDto GetBot()
@@ -67,7 +73,8 @@ namespace BitchAssBot.Services
         int foodamount = 0;
         public PlayerCommand GetPlayerCommand()
         {
-
+            System.Diagnostics.Stopwatch wtch = new System.Diagnostics.Stopwatch();
+            wtch.Start();
             PlayerCommand playerCommand = new PlayerCommand();
             playerCommand.PlayerId = this._bot.Id;
             singleplayer = this._gameState.Bots.Count == 1;
@@ -79,6 +86,7 @@ namespace BitchAssBot.Services
             if (!issueing && dto.Tick>_previousstate.Tick || dto.Tick==0 )
             {
                 issueing = true;
+                var CurrentTier = _engineConfigDto.PopulationTiers.FirstOrDefault(m => m.Level == dto.CurrentTierLevel);
                 var tmpNodes = nodes.Values.OrderByDescending(m => m.ResourceValue);
                 int units = dto.AvailableUnits;
                 var ownNodes = this._gameState.World.Map.Nodes.OrderBy(m => GetDistance(m));
@@ -97,104 +105,35 @@ namespace BitchAssBot.Services
                 if (dto.Population > MaxPOp)
                     MaxPOp = dto.Population;
 
-                var foods2 = nodes.Values.Where(m => m.Node.Type == ResourceType.Food).ToList();
-                //foodremaining= foods.Sum(m => m.Remaining) ;
+                var foods2 = nodes.Values.Where(m => m.Node.Type == ResourceType.Food && m.ScoreVal>=UnitScoreCost).ToList();
+                foodremaining= foods2.Sum(m => m.Remaining) ;
                 foodamount = foods2.Sum(m => m.Node.Amount);
                 
-                var Woods = tmpNodes.Where(m => m.Node.Type == ResourceType.Wood && m.Remaining > 00).ToList(); ;
-                var Stones = tmpNodes.Where(m => m.Node.Type == ResourceType.Stone && m.Remaining > 00).ToList(); ;
-                decimal woodamount = Woods.Sum(m => m.Remaining);
+                var Woods = tmpNodes.Where(m => m.Node.Type == ResourceType.Wood && m.Remaining > 00 && m.ScoreVal >= UnitScoreCost).ToList(); ;
+                var Stones = tmpNodes.Where(m => m.Node.Type == ResourceType.Stone && m.Remaining > 00 && m.ScoreVal >= UnitScoreCost).ToList(); ;
+                decimal woodamount = Woods.Sum(m => m.Node.Amount)+dto.Wood;
                 decimal stoneamount = Stones.Sum(m => m.Remaining);
                 if (_gameState.World.Map.Nodes.Count>250 && booming )
                     booming = foodamount > 150000 && woodamount > 1000;
 
 
                 if (dto.Tick % 10 == 1)
-                    Console.WriteLine($"\r\n{DateTime.Now: HH:mm:ss ffff} Population: {dto.Population} Units: {dto.AvailableUnits} Traveling {dto.TravellingUnits} NODES { this._gameState.World.Map.Nodes.Count} TICK {dto.Tick} HEATCAP {HeatCap}\r\n" +
+                    Log($"\r\n{DateTime.Now: HH:mm:ss ffff} Population: {dto.Population} Units: {dto.AvailableUnits} Traveling FCUKED NODES { this._gameState.World.Map.Nodes.Count} TICK {dto.Tick} HEATCAP {HeatCap}\r\n" +
                         $"Food: {dto.Food} Wood: {dto.Wood} Stone: {dto.Stone} gold: ???? Heat: {dto.Heat}\r\n" +
-                        $"Farm: {dto.FarmingUnits} Lumb: {dto.LumberingUnits} Mines: {dto.MiningUnits} gold: ???? scout: {dto.ScoutingUnits}\r\n" +
+                        $"Farm: FCUKED Lumb: FCUKED Mines: FCUKED gold: ???? scout: FCUKED\r\n" +
                         $"foodremaining {foodremaining} foodamount {foodamount} {(booming ? "BOOMING" : "")}"
 
                         );
                
-
-                if (_bot.Tick - _previousstate.Tick>1)
-                {
-                    //Console.WriteLine($"MISSED TICKS!!! {_bot.Tick - _previousstate.Tick}");
-                }
-
-               //
-                
                
-                if (cycle==0 || (cycle>0 && dto.Tick%cycle==1) || campfires>0)
-                {
-                    
-                    if (foodconsumption==0 && dto.Food<_previousstate.Food)
-                    {
-                        //tick start-tick now
-                        if (cycle == 0)
-                        {
-                            cycle = dto.Tick - tickstart;
-                            Console.WriteLine($"Cycle {cycle}");
-                        }
-                        foodconsumption = ((decimal)(_previousstate.Food - dto.Food)) / (decimal)dto.Population;
-                        Console.WriteLine($"foodconsumption {foodconsumption}");
-                    }
-                    
-                    if (woodconsumption == 0 && dto.Wood < _previousstate.Wood)
-                    {
-                        //tick start-tick now
-                        //cycle = dto.Tick - tickstart;
-                        woodconsumption = ((decimal)(_previousstate.Wood - dto.Wood)) / (decimal)dto.Population;
-                        Console.WriteLine($"woodconsumption {woodconsumption}");
-                    }
-                    if (campfirecost== 0 && dto.Wood < _previousstate.Wood && campfires>0)
-                    {
-                        decimal woodused = ((decimal)(_previousstate.Wood - dto.Wood));
-                        if (dto.Tick % cycle == 1)
-                            woodused -= dto.Population * woodconsumption;
-                        campfirecost = woodused / (decimal)campfires;
-                        
-                        Console.WriteLine($"campfirecost {campfirecost}");
-                    }
-                    if (campfirereward==0 && dto.Heat > _previousstate.Heat && campfirecost>0)
-                    {
-                        campfirereward = (dto.Heat - _previousstate.Heat) * Previouscampfires;
-                        Console.WriteLine($"campfirereward {campfirereward}");
-                    }
+                
 
-                    if (stoneconsumption == 0 && dto.Stone < _previousstate.Stone && dto.Population >= 10)
-                    {
-                        //tick start-tick now
-                        //cycle = dto.Tick - tickstart;
-                        stoneconsumption = ((decimal)(_previousstate.Stone - dto.Stone)) / (decimal)dto.Population;
-                        Console.WriteLine($"stoneconsumption {stoneconsumption}");
-                    }
-
-                    if (heatconsumption == 0 && dto.Heat < _previousstate.Heat && dto.Population >= 10)
-                    {
-                        //tick start-tick now
-                        //cycle = dto.Tick - tickstart;
-                        heatconsumption = ((decimal)(_previousstate.Heat - dto.Heat)) / (decimal)_previousstate.Population;
-                        Console.WriteLine($"heatconsumption {heatconsumption}");
-                    }
-
-
-                    if (!Haveeverything)
-                    {
-                        Haveeverything = (cycle > 0 && foodconsumption > 0 && woodconsumption > 0 && campfirecost > 0 && campfirereward > 0 && stoneconsumption > 0 && heatconsumption > 0);
-                    }
-                }
                 if ((cycle > 0 && dto.Tick % cycle == 1))
                 {
                     campfiresthiscycle = 0;
                 }
                 
-                /*foreach (var x in nodes.Values)
-                {
-                    x.Node = ownNodes.FirstOrDefault(m=>m.Id==x.Node.Id);
-                    var tmpNodes = x.checkReturnedUnits(dto.Tick);
-                }*/
+               
                
                 if (units == 0)
                 {
@@ -210,341 +149,404 @@ namespace BitchAssBot.Services
 
                         if (Haveeverything && dto.Population>=50 || dto.CurrentTierLevel>0)
                         {
-
-                            var foods = tmpNodes.Where(m => m.Node.Type == ResourceType.Food && m.Remaining > 1000).ToList();
-
-
-                            foodrewards = foods.Count() > 0 ? foods.Sum(m => m.Reward):foodrewards;
-                            fooddays = foods.Count() > 0 ? foods.Sum(m => m.TravelTime) : fooddays;
-                            decimal m = (foodrewards / fooddays * (decimal)cycle); 
-                            decimal ff = ((decimal)foodconsumption*1.2m ) / m;
-                            
-
-                            
-                            woodrewards = Woods.Count()>0? Woods.Sum(m => m.Reward) : woodrewards ;
-                            wooddays = Woods.Count() > 0 ? Woods.Sum(m => m.TravelTime): wooddays;
-                            decimal n = woodrewards / wooddays * (decimal)cycle;
-                            decimal woodcon2 = woodconsumption + (dto.Population<_gameState.PopulationTiers[3].MaxPopulation?0.1m: (campfirecost / campfirereward));
-                            decimal wf = ((decimal)woodcon2) / n;
-
-                            
-                            decimal sf = 0;
-                            if (dto.Stone<= _gameState.PopulationTiers.Max(m=>m.TierResourceConstraints.Stone))
-                            {
-                                stonerewards = Stones.Count() > 0 ? Stones.Sum(m => m.Reward) : stonerewards;
-                                stonedays = Stones.Count() > 0 ? Stones.Sum(m => m.TravelTime) : stonedays;
-                                decimal o = stonerewards / stonedays * (decimal)cycle;
-                                 sf = (stoneconsumption) / o;
-                            }
                            
-                           
-
-                            if (foods.Count() <= 2 || Woods.Count() <= 2 || Stones.Count() <= 2)
                             {
+                                var foods = tmpNodes.Where(m => m.Node.Type == ResourceType.Food && m.Remaining > 1000 && m.ScoreVal >= UnitScoreCost).ToList();
 
-                                int tunits = Math.Min(3, units);
-                                List<CommandAction> commands = Scout(tunits);
-                                if (commands.Count > 0)
-                                {
-                                    playerCommand.Actions.AddRange(commands);
-                                    units -= commands.Count;
-                                }
-                            }
 
-                            //var Heats = nodes.Values.Where(m => m.Node.Type == ResourceType.Heat);
-                            decimal Heatrewards = campfirereward;
-                            decimal Heatdays = 1;
-                            decimal p = Heatrewards / Heatdays * (decimal)cycle;
-                            decimal hf = ((decimal)heatconsumption+0.05m) / p;
-
-                            decimal TotalWeight = ff + wf + sf + hf;
-
-                            int foodunits =  0;
-                            int woodunits =  0;
-                            int stoneunits = 0;
-                            int heatunits = 0;
-
-                            if (units >= 4)
-                            {
-                                //decimal fieldunits = PendingUnits.Sum(m => m.Units);
-                                //decimal pendingfood = PendingUnits.Where(m => m.Type == ResourceType.Food).Sum(m => m.Units);
-                                //decimal pendingWood = PendingUnits.Where(m => m.Type == ResourceType.Wood).Sum(m => m.Units);
-                                //decimal pendingStone = PendingUnits.Where(m => m.Type == ResourceType.Stone).Sum(m => m.Units);
-                                //decimal pendingHeat = campfires;
-                                //decimal TotalUnits = fieldunits+campfires+units;
-
-                                
-                                //decimal Totalheatunits = (int)Math.Floor((double)(TotalUnits * (hf / TotalWeight)));
-                                //heatunits =(int)( Totalheatunits - pendingHeat);
-                                heatunits = (int)Math.Ceiling((double)(units * (hf / TotalWeight)));
-                                int MinHeats = (int)Math.Ceiling((((dto.Population * (booming? 3 :1.1m) / heatconsumption) / 10m) / campfirereward));
-                                /*if (dto.Tick >= popBoom)
-                                {
-                                    //heatunits = (int)Math.Floor((double)(units * (hf / TotalWeight)));
-                                    MinHeats = (int)Math.Ceiling((((dto.Population * 1.05m / heatconsumption) / 10m) / (campfirereward * 1.1m)));
-                                   
-                                }*/
-                                if (heatunits < MinHeats)
-                                {
-                                    //Console.WriteLine("Failed heat check");
-                                    heatunits = MinHeats;
-                                }
-                                if (heatunits > units)
-                                    heatunits = units;
-                                
-                                //dto.Food
-                                if (dto.Tick<maxTicks)
-                                {
-                                    //set the heatcap according to available food
-
-                                    if (dto.Tick>1000 && UnscoutedTowers() && units>0)
-                                    {
-                                        var Result = Scout(units);
-                                        if (Result.Count > 0)
-                                            playerCommand.Actions.AddRange(Result);
-                                    }
-
-                                    decimal ticketsleft = maxTicks - dto.Tick;
-                                    if (ticketsleft > 400 && singleplayer)
-                                    {
-                                        ticketsleft += 500;
-                                    }                                    
-                                    decimal availablefood = ownNodes.Where(m => m.Type == ResourceType.Food).Sum(m => m.Amount);
-                                    decimal FoodPerTicket = ownNodes.Where(m => m.Type == ResourceType.Food && m.Amount<nodes[m.Id].maxamount).Sum(m => m.RegenerationRate.Amount/m.RegenerationRate.Ticks);
-                                    decimal Totalfood = dto.Food+ availablefood+ (FoodPerTicket * ticketsleft);
-                                    decimal SustainPop = Totalfood / (ticketsleft / 10); ;
-                                   
-                                    /*if (dto.Tick%10==1)
-                                        Console.WriteLine($"ticksleft: {ticketsleft} ReadyFood {availablefood} RegenFood {FoodPerTicket} TotalFood {Totalfood} SustainPop {SustainPop}");*/
-                                    HeatCap = SustainPop*2m ;
-                                }
+                                foodrewards = foods.Count() > 0 ? foods.Sum(m => m.Reward) : foodrewards;
+                                fooddays = foods.Count() > 0 ? foods.Sum(m => m.TravelTime) : fooddays;
+                                decimal m = (foodrewards / fooddays * (decimal)cycle);
+                                decimal ff = ((decimal)foodconsumption * (decimal)_engineConfigDto.ResourceImportance.Food) / m;
 
 
 
-                                if (dto.Tick>popBoomCalcStart && dto.Tick%10==0 && popBoom>dto.Tick)
-                                {
-                                    decimal totalpop = dto.Population;
-                                    decimal totalfood = 0;
-                                    int i = 0;
-                                    for (i = dto.Tick; i<=2500;i+=10)
-                                    {
-                                        totalfood += totalpop;
-                                        totalpop *= 1.05m;
-                                        if (totalfood>dto.Food)
-                                        {
-                                            
-                                            break;
-                                            
-                                        }
-                                    }
-                                    if (i >= 2500-30)
-                                    {
-                                        popBoom = dto.Tick;
-                                    }
-                                }
-                                //if (popBoom < dto.Tick)
-                                //{
-                                //    //popBoom = dto.Tick;
-                                //    //Console.WriteLine("----------------------------------------------------------------------------------------------------------------------------------");
-                                //    HeatCap *= 1.05m;
-                                //    if (popBoom == dto.Tick)
-                                //    {
-                                //        foodunits = (int)Math.Floor((double)(units * (ff / TotalWeight)));
-                                //        heatunits += foodunits;
-                                //        foodunits = 0;
-                                //    }
-                                //    ff = 0;
-                                //    if (dto.Stone >= 1043)
-                                //        sf = 0;
-                                //    TotalWeight = hf + wf + sf;
-                                //}
-                                //TotalUnits -= heatunits;
-                                if (booming)
-                                    HeatCap = 60000;
-                                if (woodamount < 1000 || stoneamount < 1000)
-                                    HeatCap = 50;
-                                if (dto.Heat>= HeatCap)
-                                {
-                                   
-                                    heatunits = 0;
-                                    if (!singleplayer)
-                                        HeatCap *= 1.015m;
+                                woodrewards = Woods.Count() > 0 ? Woods.Sum(m => m.Reward) : woodrewards;
+                                wooddays = Woods.Count() > 0 ? Woods.Sum(m => m.TravelTime) : wooddays;
+                                decimal n = woodrewards / wooddays * (decimal)cycle;
+                                decimal phaseloading = (dto.Population < _gameState.PopulationTiers[3].MaxPopulation ? //early game, focus on food
+                                    0.1m :
+                                   dto.CurrentTierLevel==6?
+                                   (campfirecost / campfirereward)*2
+                                   :
+                                    (campfirecost / campfirereward)
                                     
-                                    //units += heatunits;
-                                    //TotalUnits += heatunits;
-                                   
-                                    /*if (campfiresthiscycle > populationCap / campfirereward)
+                                    );
+                                decimal woodcon2 = woodconsumption + phaseloading;
+                                decimal wf = ((decimal)woodcon2) / n;
+
+
+                                decimal sf = 0;
+                                if (dto.Stone <= _gameState.PopulationTiers.Max(m => m.TierResourceConstraints.Stone) && Stones.Count>0)
+                                {
+                                    stonerewards = Stones.Count() > 0 ? Stones.Sum(m => m.Reward) : stonerewards;
+                                    /*if (stonedays == 0)
+                                        stonedays = _engineConfigDto.ResourceGenerationConfig.Stone.RewardRange.Min();*/
+                                    stonedays = Stones.Count() > 0 ? Stones.Sum(m => m.TravelTime) : stonedays;
+                                    /*if (stonedays == 0)
+                                        stonedays = _engineConfigDto.ResourceGenerationConfig.Stone.WorkTimeRange.Max() * 2;*/
+                                    decimal o = 0;
+                                    if (stonedays > 0 && stonerewards > 0)
+
                                     {
-                                        units += heatunits;
-                                        heatunits = 0;
+                                        o = stonerewards / stonedays * (decimal)cycle;
+                                        sf = (stoneconsumption) / o;
                                     }
-                                    else if (campfiresthiscycle + heatunits >= populationCap / campfirereward)
+                                }
+
+
+
+                                if (foods.Count() <= 2 || Woods.Count() <= 2 || Stones.Count() <= 2)
+                                {
+
+                                    int tunits = Math.Max(3, units);
+                                    //int sent = tunits;
+                                    List<CommandAction> commands = Scout(ref tunits);
+                                    if (commands.Count > 0)
                                     {
-                                        int newheatunits = (int)((populationCap / campfirereward) - (decimal)campfiresthiscycle);
-                                        units += heatunits - newheatunits;
-                                        heatunits = newheatunits;
+                                        playerCommand.Actions.AddRange(commands);
+                                        units -= commands.Count;
+                                    }
+                                    
+                                }
+
+                                //var Heats = nodes.Values.Where(m => m.Node.Type == ResourceType.Heat);
+                                decimal Heatrewards = campfirereward;
+                                decimal Heatdays = 1;
+                                decimal p = Heatrewards / Heatdays * (decimal)cycle;
+                                decimal hf = ((decimal)heatconsumption + 0.05m) / p;
+
+                                decimal TotalWeight = ff + wf + sf + hf;
+
+                                int foodunits = 0;
+                                int woodunits = 0;
+                                int stoneunits = 0;
+                                int heatunits = 0;
+
+                                if (units >= 4)
+                                {
+                                    //decimal fieldunits = PendingUnits.Sum(m => m.Units);
+                                    //decimal pendingfood = PendingUnits.Where(m => m.Type == ResourceType.Food).Sum(m => m.Units);
+                                    //decimal pendingWood = PendingUnits.Where(m => m.Type == ResourceType.Wood).Sum(m => m.Units);
+                                    //decimal pendingStone = PendingUnits.Where(m => m.Type == ResourceType.Stone).Sum(m => m.Units);
+                                    //decimal pendingHeat = campfires;
+                                    //decimal TotalUnits = fieldunits + campfires + units;
+
+
+                                    //decimal Totalheatunits = (int)Math.Floor((double)(TotalUnits * (hf / TotalWeight)));
+                                    //heatunits =(int)( Totalheatunits - pendingHeat);
+                                    heatunits = (int)Math.Ceiling((double)(units * (hf / TotalWeight)));
+                                    int MinHeats = (int)Math.Ceiling((((dto.Population * (booming ? 3 : 1.1m) / heatconsumption) / 10m) / campfirereward));
+                                    /*if (dto.Tick >= popBoom)
+                                    {
+                                        //heatunits = (int)Math.Floor((double)(units * (hf / TotalWeight)));
+                                        MinHeats = (int)Math.Ceiling((((dto.Population * 1.05m / heatconsumption) / 10m) / (campfirereward * 1.1m)));
+
                                     }*/
-                                }
-                                else if ( dto.Heat+(heatunits*Heatrewards)>HeatCap)
-                                {                                    
-                                    heatunits =(int)((HeatCap-dto.Heat) / Heatrewards);
-                                }
-                                campfiresthiscycle += heatunits;
-                                if (dto.Wood < heatunits * campfirecost)
-                                {
-                                    int oldheat = heatunits;
-                                    heatunits = (int)Math.Floor(dto.Wood / campfirecost);
-                                    //units += oldheat - heatunits;
-                                    heatunits += oldheat - heatunits;
-                                }
-                                units -= heatunits;
+                                    if (heatunits < MinHeats)
+                                    {
+                                        //Log("Failed heat check");
+                                        heatunits = MinHeats;
+                                    }
+                                    if (heatunits > units)
+                                        heatunits = units;
+
+                                    //dto.Food
+                                    if (dto.Tick < maxTicks)
+                                    {
+                                        //set the heatcap according to available food
+
+                                        if (dto.Tick > 1000 && UnscoutedTowers() && units > 0)
+                                        {
+                                            var Result = Scout(ref units);
+                                            if (Result.Count > 0)
+                                                playerCommand.Actions.AddRange(Result);
+                                        }
+
+                                        decimal ticketsleft = maxTicks - dto.Tick;
+                                        if (ticketsleft > 400 && singleplayer)
+                                        {
+                                            ticketsleft += 500;
+                                        }
+                                        decimal availablefood = foods2.Sum(m => m.Node.Amount);
+
+                                        decimal FoodPerTicket = ownNodes.Where(m => m.Type == ResourceType.Food && m.Amount < nodes[m.Id].maxamount).Sum(m => m.RegenerationRate.Amount / m.RegenerationRate.Ticks);
+                                        decimal Totalfood = dto.Food + availablefood + (FoodPerTicket * ticketsleft);
+                                        decimal SustainPopFood = Totalfood / (ticketsleft / 10); ;
+
+                                        decimal availablewood = Woods.Sum(m => m.Node.Amount);
+
+                                        decimal TotalWood = dto.Wood + availablewood;
+                                        decimal SustainPopWood = TotalWood / (ticketsleft / 10); ;
+
+                                        decimal SustainPop = Math.Min(SustainPopFood, SustainPopWood);
+                                        /*if (dto.Tick%10==1)
+                                            Log($"ticksleft: {ticketsleft} ReadyFood {availablefood} RegenFood {FoodPerTicket} TotalFood {Totalfood} SustainPop {SustainPop}");*/
+                                        HeatCap = SustainPop * 2m;
+                                    }
+
+
+
+                                    //if (dto.Tick>popBoomCalcStart && dto.Tick%10==0 && popBoom>dto.Tick)
+                                    //{
+                                    //    decimal totalpop = dto.Population;
+                                    //    decimal totalfood = 0;
+                                    //    int i = 0;
+                                    //    for (i = dto.Tick; i<=2500;i+=10)
+                                    //    {
+                                    //        totalfood += totalpop;
+                                    //        totalpop *= 1.05m;
+                                    //        if (totalfood>dto.Food)
+                                    //        {
+
+                                    //            break;
+
+                                    //        }
+                                    //    }
+                                    //    if (i >= 2500-30)
+                                    //    {
+                                    //        popBoom = dto.Tick;
+                                    //    }
+                                    //}
+                                    //if (popBoom < dto.Tick)
+                                    //{
+                                    //    //popBoom = dto.Tick;
+                                    //    //Log("----------------------------------------------------------------------------------------------------------------------------------");
+                                    //    HeatCap *= 1.05m;
+                                    //    if (popBoom == dto.Tick)
+                                    //    {
+                                    //        foodunits = (int)Math.Floor((double)(units * (ff / TotalWeight)));
+                                    //        heatunits += foodunits;
+                                    //        foodunits = 0;
+                                    //    }
+                                    //    ff = 0;
+                                    //    if (dto.Stone >= 1043)
+                                    //        sf = 0;
+                                    //    TotalWeight = hf + wf + sf;
+                                    //}
+                                    //TotalUnits -= heatunits;
+                                    if (booming)
+                                    {
+                                        HeatCap = _engineConfigDto.PopulationTiers.OrderByDescending(m => m.Level).FirstOrDefault(m => m.MaxPopulation > 0).MaxPopulation * 2;
+                                        HeatCap = Math.Min(HeatCap, dto.Population * 2.5m);
+                                    }
+                                    else
+                                    {
+                                        HeatCap = 0;
+                                    }
+                                    if (dto.Tick >= maxTicks - (cycle))
+                                        HeatCap = 0;
+
+                                    /*if (woodamount < 1000 || stoneamount < 1000)
+                                        HeatCap = 50;*/
+                                    if (dto.Heat >= HeatCap)
+                                    {
+
+                                        heatunits = 0;
+                                        if (!singleplayer)
+                                            HeatCap *= 1m + (decimal)CurrentTier.PopulationChangeFactorRange.Max();
+
+                                        //units += heatunits;
+                                        //TotalUnits += heatunits;
+
+                                        /*if (campfiresthiscycle > populationCap / campfirereward)
+                                        {
+                                            units += heatunits;
+                                            heatunits = 0;
+                                        }
+                                        else if (campfiresthiscycle + heatunits >= populationCap / campfirereward)
+                                        {
+                                            int newheatunits = (int)((populationCap / campfirereward) - (decimal)campfiresthiscycle);
+                                            units += heatunits - newheatunits;
+                                            heatunits = newheatunits;
+                                        }*/
+                                    }
+                                    else if (dto.Heat + (heatunits * Heatrewards) > HeatCap)
+                                    {
+                                        heatunits = (int)((HeatCap - dto.Heat) / Heatrewards);
+                                    }
+                                    campfiresthiscycle += heatunits;
+                                    if (dto.Wood < heatunits * campfirecost)
+                                    {
+                                        int oldheat = heatunits;
+                                        heatunits = (int)Math.Floor(dto.Wood / campfirecost);
+                                        //units += oldheat - heatunits;
+                                        heatunits += oldheat - heatunits;
+                                    }
+                                    if (heatunits > units)
+                                        heatunits = units;
+                                    units -= heatunits;
 
 
 
 
-                                if (!booming && woodamount > 10000)
-                                {
-                                    woodunits = units;
-                                }
-                                else
-                                {
+                                    
                                     foodunits = (int)Math.Floor((double)(units * (ff / TotalWeight)));
                                     if (woodamount > 0)
                                         woodunits = (int)Math.Floor((double)(units * (wf / TotalWeight)));
                                     if (stoneamount > 0)
                                         stoneunits = (int)Math.Floor((double)(units * (sf / TotalWeight)));
-                                }
-                                units -= foodunits + woodunits + stoneunits;
-                                
-                                //units -= foodunits + woodunits + stoneunits;
-                                if (units > 0)
-                                {
-                                    if (UnscoutedTowers())
-                                    {
-                                        playerCommand.Actions.AddRange(Scout(units));
-                                    }
-                                    else //if (popBoom <= dto.Tick)
-                                        foodunits += units;
-                                    /*else
-                                        woodunits += units;*/
-                                }
-                                else if (units < 0)
-                                {
-
-                                }
-                                /*
-                                Console.WriteLine($"ff: {ff:0.0000}\twf: {wf:0.0000}\tsf: {sf:0.0000}\thf: {hf:0.0000}\r\n" +
-                                $"fu: {foodunits:00000}\twu: {woodunits:00000}\tsu: {stoneunits:00000}\thu: {heatunits:00000}\r\n");
-                                */
-                            }
-                            else
-                            {   
-                                switch (resourcerotation[lastindex++])
-                                {
-                                    case ResourceType.Food: foodunits += units; units = 0; break;
-                                    case ResourceType.Wood: woodunits += units; units = 0; break;
-                                    case ResourceType.Heat: heatunits += units; units = 0; break;
-                                    case ResourceType.Stone: stoneunits += units; units = 0; break;
-                                }
-                                if (lastindex >= resourcerotation.Length)
-                                    lastindex = 0;
-                            }
-
-                            if (heatunits > 0)
-                            {
-                                campfires = heatunits;
-                                playerCommand.Actions.Add(new CommandAction()
-                                {
-                                    Type = ActionType.StartCampfire,
-                                    Units = heatunits,
-                                });
-
-                            }
-                            int index = 0;
-                            foods = tmpNodes.Where(m => m.Node.Type == ResourceType.Food && m.Node.Amount > 0).ToList();
-                            while (foodunits > 0 && index<foods.Count)
-                            {
-                                var closestnode = foods[index];// nodes.Values.FirstOrDefault(m => m.Node.Type == ResourceType.Food && m.Remaining > 0);
-                                //var closestnode = ownNodes.FirstOrDefault(m => m.Type == ResourceType.Food && (m.Amount > 2 * dto.Population || m.Amount > 1000));
-                                if (closestnode == null)
-                                {
-                                    playerCommand.Actions.AddRange(Scout(foodunits));
-                                    //units = foodunits;
-                                    foodunits = 0;
-                                    Console.WriteLine("No farms left bitch");
-                                    //closestnode = ownNodes.FirstOrDefault(m => m.Type == ResourceType.Food && m.Amount > 100);
-                                }
-                                if (foodunits > 0 && closestnode != null)
-                                {
-                                    int uisedunits = foodunits;
-                                    //get feedback from minenode as to hoy many are going and re-assign the rest
-                                    var tmpAction = MineNode(closestnode.Node, ref uisedunits);
-                                    if (tmpAction!=null)
-                                        playerCommand.Actions.Add(tmpAction);
-                                    foodunits -= uisedunits;
-                                }
-                                index++;
-                            }
-                            if (foodunits > 0)
-                                woodunits += foodunits;
-                            index=0;
-                            while (woodunits > 0 && index < Woods.Count)
-                            {
-                                var closestnode = Woods[index];// nodes.Values.FirstOrDefault(m => m.Node.Type == ResourceType.Wood && m.Remaining > 0);
-                                //var closestnode = ownNodes.FirstOrDefault(m => m.Type == ResourceType.Food && (m.Amount > 2 * dto.Population || m.Amount > 1000));
-                                if (closestnode == null)
-                                {
-                                    playerCommand.Actions.AddRange(Scout(woodunits));
-                                    //units = foodunits;
-                                    woodunits = 0;
-                                    //closestnode = ownNodes.FirstOrDefault(m => m.Type == ResourceType.Food && m.Amount > 100);
-                                }
-                                if (woodunits > 0 && closestnode != null)
-                                {
-                                    //get feedback from minenode as to hoy many are going and re-assign the rest
-                                    int uisedunits = woodunits;
-                                    //get feedback from minenode as to hoy many are going and re-assign the rest
                                     
-                                    var tmpAction = MineNode(closestnode.Node, ref uisedunits);
-                                    if (tmpAction != null)
-                                        playerCommand.Actions.Add(tmpAction);
-                                    woodunits -= uisedunits;
-                                }
-                                index++;
-                            }
-                            if (woodunits > 0)
-                                stoneunits += woodunits;
-                            index = 0;
-                            while (stoneunits > 0 && index < Stones.Count)
-                            {
-                                var closestnode = Stones[index];// nodes.Values.FirstOrDefault(m => m.Node.Type == ResourceType.Stone && m.Remaining > 0);
-                                //var closestnode = ownNodes.FirstOrDefault(m => m.Type == ResourceType.Food && (m.Amount > 2 * dto.Population || m.Amount > 1000));
-                                if (closestnode == null)
-                                {
-                                    playerCommand.Actions.AddRange(Scout(stoneunits));
-                                    //units = foodunits;
-                                    stoneunits = 0;
-                                    //closestnode = ownNodes.FirstOrDefault(m => m.Type == ResourceType.Food && m.Amount > 100);
-                                }
-                                if (stoneunits > 0 && closestnode != null)
-                                {
-                                    //get feedback from minenode as to hoy many are going and re-assign the rest
-                                    int uisedunits = stoneunits;
-                                    //get feedback from minenode as to hoy many are going and re-assign the rest
-                                    var tmpAction = MineNode(closestnode.Node, ref uisedunits);
-                                    if (tmpAction != null)
-                                        playerCommand.Actions.Add(tmpAction);
-                                    stoneunits -= uisedunits;
-                                }
-                                index++;
-                            }
 
+                                    units -= foodunits + woodunits + stoneunits;
+                                    if (units > 0)
+                                    {
+                                        if (UnscoutedTowers())
+                                        {
+                                            playerCommand.Actions.AddRange(Scout(ref units));
+                                        }
+                                        foodunits += units;
+                                    }
+                                    else if (units < 0)
+                                    {
+
+                                    }
+
+                                    /*Log($"ff: {ff:0.0000}\twf: {wf:0.0000}\tsf: {sf:0.0000}\thf: {hf:0.0000}\r\n" +
+                                    $"fu: {foodunits:00000}\twu: {woodunits:00000}\tsu: {stoneunits:00000}\thu: {heatunits:00000}\r\n");*/
+
+                                }
+                                else
+                                {
+                                    switch (resourcerotation[lastindex++])
+                                    {
+                                        case ResourceType.Food: foodunits += units; units = 0; break;
+                                        case ResourceType.Wood: woodunits += units; units = 0; break;
+                                        case ResourceType.Heat: heatunits += units; units = 0; break;
+                                        case ResourceType.Stone: stoneunits += units; units = 0; break;
+                                    }
+                                    if (lastindex >= resourcerotation.Length)
+                                        lastindex = 0;
+                                }
+                               
+                                if (booming)
+                                {
+                                    int index = 0;
+                                    foods = tmpNodes.Where(m => m.Node.Type == ResourceType.Food && m.Node.Amount > 0 && m.ScoreVal >= UnitScoreCost).ToList();
+                                    while (foodunits > 0 && index < foods.Count)
+                                    {
+                                        var closestnode = foods[index];// nodes.Values.FirstOrDefault(m => m.Node.Type == ResourceType.Food && m.Remaining > 0);
+                                                                       //var closestnode = ownNodes.FirstOrDefault(m => m.Type == ResourceType.Food && (m.Amount > 2 * dto.Population || m.Amount > 1000));
+                                        if (closestnode == null)
+                                        {
+                                            playerCommand.Actions.AddRange(Scout(ref foodunits));
+                                            //units = foodunits;
+                                            //foodunits = 0;
+                                            Log("No farms left bitch");
+                                            //closestnode = ownNodes.FirstOrDefault(m => m.Type == ResourceType.Food && m.Amount > 100);
+                                        }
+                                        if (foodunits > 0 && closestnode != null)
+                                        {
+                                            int uisedunits = foodunits;
+                                            //get feedback from minenode as to hoy many are going and re-assign the rest
+                                            var tmpAction = MineNode(closestnode.Node, ref uisedunits);
+                                            if (tmpAction != null)
+                                                playerCommand.Actions.Add(tmpAction);
+                                            foodunits -= uisedunits;
+                                        }
+                                        index++;
+                                    }
+                                    if (foodunits > 0)
+                                        woodunits += foodunits;
+                                    index = 0;
+                                    if (CurrentTier.tierMaxResources.Wood*0.95m <=(decimal) dto.Wood && booming)
+                                    {
+                                        heatunits += woodunits;
+                                        woodunits = 0;
+                                    }
+                                    while (woodunits > 0 && index < Woods.Count)
+                                    {
+                                        var closestnode = Woods[index];// nodes.Values.FirstOrDefault(m => m.Node.Type == ResourceType.Wood && m.Remaining > 0);
+                                                                       //var closestnode = ownNodes.FirstOrDefault(m => m.Type == ResourceType.Food && (m.Amount > 2 * dto.Population || m.Amount > 1000));
+                                        if (closestnode == null)
+                                        {
+                                            playerCommand.Actions.AddRange(Scout(ref woodunits));
+                                            //units = foodunits;
+                                            //woodunits = 0;
+                                            //closestnode = ownNodes.FirstOrDefault(m => m.Type == ResourceType.Food && m.Amount > 100);
+                                        }
+                                        if (woodunits > 0 && closestnode != null)
+                                        {
+                                            //get feedback from minenode as to hoy many are going and re-assign the rest
+                                            int uisedunits = woodunits;
+                                            //get feedback from minenode as to hoy many are going and re-assign the rest
+
+                                            var tmpAction = MineNode(closestnode.Node, ref uisedunits);
+                                            if (tmpAction != null)
+                                                playerCommand.Actions.Add(tmpAction);
+                                            woodunits -= uisedunits;
+                                        }
+                                        index++;
+                                    }
+                                    if (woodunits > 0)
+                                        stoneunits += woodunits;
+                                    index = 0;
+                                    if (CurrentTier.tierMaxResources.Stone * 0.95m <= (decimal)dto.Stone && booming)
+                                    {
+                                        heatunits += stoneunits;
+                                        stoneunits = 0;
+                                    }
+                                    while (stoneunits > 0 && index < Stones.Count)
+                                    {
+                                        var closestnode = Stones[index];// nodes.Values.FirstOrDefault(m => m.Node.Type == ResourceType.Stone && m.Remaining > 0);
+                                                                        //var closestnode = ownNodes.FirstOrDefault(m => m.Type == ResourceType.Food && (m.Amount > 2 * dto.Population || m.Amount > 1000));
+                                        if (closestnode == null)
+                                        {
+                                            playerCommand.Actions.AddRange(Scout(ref stoneunits));
+                                            //units = foodunits;
+                                            //stoneunits = 0;
+                                            //closestnode = ownNodes.FirstOrDefault(m => m.Type == ResourceType.Food && m.Amount > 100);
+                                        }
+                                        if (stoneunits > 0 && closestnode != null)
+                                        {
+                                            //get feedback from minenode as to hoy many are going and re-assign the rest
+                                            int uisedunits = stoneunits;
+                                            //get feedback from minenode as to hoy many are going and re-assign the rest
+                                            var tmpAction = MineNode(closestnode.Node, ref uisedunits);
+                                            if (tmpAction != null)
+                                                playerCommand.Actions.Add(tmpAction);
+                                            stoneunits -= uisedunits;
+                                        }
+                                        index++;
+                                    }
+                                }
+                                else
+                                {
+                                    var Resources = nodes.Values.Where(m => m.Remaining > 0).OrderBy(m => m.ScoreVal).ToList();
+                                    for (int i = 0; i < Resources.Count && units > 0; i++)
+                                    {
+                                        int uisedunits = units;
+                                        //get feedback from minenode as to hoy many are going and re-assign the rest
+                                        var tmpAction = MineNode(Resources[i].Node, ref uisedunits);
+                                        if (tmpAction != null)
+                                            playerCommand.Actions.Add(tmpAction);
+                                        units -= uisedunits;
+
+                                    }
+                                }
+                               
+                                if (heatunits > 0)
+                                {
+                                    campfires = heatunits;
+                                    playerCommand.Actions.Add(new CommandAction()
+                                    {
+                                        Type = ActionType.StartCampfire,
+                                        Units = heatunits,
+                                    });
+
+                                }
+                            }
                         }
                         else
                         {
 
                             #region old 
-                            if (expand && dto.Heat < dto.Population * 4)
+                            if (dto.Wood > 5 && dto.Food > 2 && !expand)
+                            {
+                                expand = true;
+                                Current = ResourceType.Food;
+                            }
+                            if (expand && dto.Heat < dto.Population * 2.5)
                             {
                                 Previouscampfires = campfires;
                                 campfires = Math.Min(Math.Max(dto.Population / 5, 1), units);
@@ -556,86 +558,7 @@ namespace BitchAssBot.Services
                                 });
                                 units -= campfires;
                             }
-                            /*if ((dto.Food < 5 * dto.Population || (Current == ResourceType.Food)) && units > 0 || units > 0)
-                            {
-                                if (dto.Food < 5 * dto.Population )
-                                {
-                                    Current = ResourceType.Food;
-                                    var closestnode = ownNodes.FirstOrDefault(m => m.Type == ResourceType.Food && (m.Amount > 2 * dto.Population || m.Amount > 1000));
-                                    if (closestnode == null)
-                                    {
-                                        playerCommand.Actions.AddRange(Scout(1));
-                                        units--;
-                                        closestnode = ownNodes.FirstOrDefault(m => m.Type == ResourceType.Food && m.Amount > 100);
-                                    }
-                                    int usedunits = units;
-                                    //get feedback from minenode as to hoy many are going and re-assign the rest
-                                    var tmpAction = MineNode(closestnode, ref usedunits);
-                                    if (tmpAction != null)
-                                        playerCommand.Actions.Add(tmpAction);
-                                    units -= usedunits;
-                                }
-                                else
-                                {
-                                    Current = ResourceType.Wood;
-                                }
-                            }
-                            if ((Current == ResourceType.Wood) && units > 0 || units > 0)
-                            {
-                                if (dto.Wood < 4 * dto.Population)
-                                {
-                                    //Current = ResourceType.Wood;
-                                    var closestnode = ownNodes.FirstOrDefault(m => m.Type == ResourceType.Wood && m.Amount > 0);
-                                    if (closestnode == null)
-                                    {
-                                        playerCommand.Actions.AddRange(Scout(1));
-                                        units--;
-                                        //closestnode = ownNodes.FirstOrDefault(m => m.Type == ResourceType.Wood && m.Amount > 10);
-                                    }
-                                    else
-                                    {
-                                        int usedunits = units;
-                                        //get feedback from minenode as to hoy many are going and re-assign the rest
-                                        var tmpAction = MineNode(closestnode, ref usedunits);
-                                        if (tmpAction != null)
-                                            playerCommand.Actions.Add(tmpAction);
-                                        units -= usedunits;
-                                    }
-                                }
-                                else
-                                {
-                                    Current = ResourceType.Stone;
-                                }
-                            }
-                            if ((Current == ResourceType.Stone && dto.Stone < 2 * dto.Population) && units > 0 || units > 0)
-                            {
-                                if (dto.Stone < 2 * dto.Population)
-                                {
-                                    Current = ResourceType.Stone;
-                                    var closestnode = ownNodes.FirstOrDefault(m => m.Type == ResourceType.Stone && m.Amount > 10);
-                                    if (closestnode == null)
-                                    {
-                                        //Maybe here use a percentage of what should be allocated to mining?
-                                        playerCommand.Actions.AddRange(Scout(1));
-                                        units--;
-                                        //closestnode = ownNodes.FirstOrDefault(m => m.Type == ResourceType.Food && m.Amount > 100);
-                                    }
-                                    else
-                                    {
-                                        int usedunits = units;
-                                        //get feedback from minenode as to hoy many are going and re-assign the rest
-                                        var tmpAction = MineNode(closestnode, ref usedunits);
-                                        if (tmpAction != null)
-                                            playerCommand.Actions.Add(tmpAction);
-                                        units -= usedunits;
-                                    }
-
-                                }
-                                else
-                                {
-                                    Current = ResourceType.Food;
-                                }
-                            }*/
+                            
                             int foodunits = 0;
                             int woodunits = 0;
                             int stoneunits = 0;
@@ -650,9 +573,11 @@ namespace BitchAssBot.Services
                                 if (lastindex > (dto.Population>20?6:5))
                                     lastindex = 0;
                             }
+                            tmpNodes = nodes.Values.OrderBy(m => m.TravelTime);
+
                             if (foodunits>0)
                             {
-                                var closestnode = tmpNodes.FirstOrDefault(m => m.Node.Type == ResourceType.Food && m.Remaining > foodunits);
+                                var closestnode = tmpNodes.FirstOrDefault(m => m.Node.Type == ResourceType.Food && m.Remaining > foodunits*m.Reward);
                                 var tmpAction = MineNode(closestnode.Node, ref foodunits);
                                 if (tmpAction != null)
                                     playerCommand.Actions.Add(tmpAction);
@@ -661,7 +586,7 @@ namespace BitchAssBot.Services
                             }                            
                             if (woodunits>0)
                             {
-                                var closestnode = tmpNodes.FirstOrDefault(m => m.Node.Type == ResourceType.Wood && m.Remaining > woodunits);
+                                var closestnode = tmpNodes.FirstOrDefault(m => m.Node.Type == ResourceType.Wood && m.Remaining > woodunits * m.Reward);
                                 var tmpAction = MineNode(closestnode.Node, ref woodunits);
                                 if (tmpAction != null)
                                     playerCommand.Actions.Add(tmpAction);
@@ -679,32 +604,34 @@ namespace BitchAssBot.Services
                                 }
                                 else
                                 {
-                                    playerCommand.Actions.AddRange(Scout(stoneunits));
+                                    playerCommand.Actions.AddRange(Scout(ref stoneunits));
                                 }
                             }
 
-                            if (dto.Wood > 5 && dto.Food > 5 && !expand && woodconsumption > 0)                                
-                            {
-
-                                //create a campfire
-                                expand = true;
-                                Current = ResourceType.Food;
-
-                            }
+                            
                             #endregion
                         }
                     }
                     else
                     {
+                        var scouting = dto.PendingActions.FirstOrDefault(m => m.ActionType == ActionType.Scout);
+                        if (ownNodes.Count() == 0 && scouting == null)
+                            towers.Clear();
                         if (UnscoutedTowers() && (ownNodes.Count() == 0  || (ownNodes.Count()>0 && GetDistance(ownNodes.FirstOrDefault())>5)))
                         {
-                            playerCommand.Actions.AddRange(Scout(units));
+                            if (units > 1)
+                            {
+                                int unts = 1;
+                                playerCommand.Actions.AddRange(Scout(ref unts));
+                            }
                         }
                     }
                 }
                 issueing = false;
             }
             _previousstate = dto;
+            wtch.Stop();
+            totalticks += wtch.ElapsedTicks;
             return playerCommand;
         }
 
@@ -712,19 +639,27 @@ namespace BitchAssBot.Services
         {
             //Haveeverything = (cycle > 0 && foodconsumption > 0 && woodconsumption > 0 && campfirecost > 0 && campfirereward > 0 && stoneconsumption > 0 && heatconsumption > 0);
 
-            Console.WriteLine($"Measurements: Cycle: {cycle}\r\n" +
+            Log($"Measurements: Cycle: {cycle}\r\n" +
                 $"foodconsumption: {foodconsumption}\r\n" +
                 $"woodconsumption: {woodconsumption}\r\n" +
                 $"campfirecost: {campfirecost}\r\n" +
                 $"campfirereward: {campfirereward}\r\n" +
                 $"stoneconsumption: {stoneconsumption}\r\n" +
                 $"heatconsumption: {heatconsumption}\r\n" +
-                $"Max Population: {MaxPOp}");
-            Console.WriteLine($"Total Remaining Resources\r\n" +
+                $"Max Population: {MaxPOp}\r\n" +
+                $"Avg Processing Time: {TimeSpan.FromTicks(totalticks/_bot.Tick).TotalMilliseconds}\r\n" +
+                $"Furthest node cost: {nodes.Values.OrderBy(m=>m.ScoreVal).First().ScoreVal} vs {UnitScoreCost} unit cost");
+            
+            Log($"Total Remaining Resources\r\n" +
                 $"Food:  regen {_gameState.World.Map.Nodes.Where(m => m.Type == ResourceType.Food).Sum(m => m.RegenerationRate.Amount/ m.RegenerationRate.Ticks )} remaining {_gameState.World.Map.Nodes.Where(m=>m.Type == ResourceType.Food).Sum(m=>m.Amount)}\r\n" +
-                $"Wood: {_gameState.World.Map.Nodes.Where(m => m.Type == ResourceType.Wood).Count()} - {_gameState.World.Map.Nodes.Where(m => m.Type == ResourceType.Wood).Sum(m => m.Amount)}\r\n" +
-                $"Stone: {_gameState.World.Map.Nodes.Where(m => m.Type == ResourceType.Stone).Count()} - {_gameState.World.Map.Nodes.Where(m => m.Type == ResourceType.Stone).Sum(m => m.Amount)}\r\n");
-            Console.WriteLine(Newtonsoft.Json.JsonConvert.SerializeObject(_bot));
+                $"Wood: {_gameState.World.Map.Nodes.Where(m => m.Type == ResourceType.Wood).Count()} nodes - {_gameState.World.Map.Nodes.Where(m => m.Type == ResourceType.Wood).Sum(m => m.Amount)}\r\n" +
+                $"Stone: {_gameState.World.Map.Nodes.Where(m => m.Type == ResourceType.Stone).Count()} nodes- {_gameState.World.Map.Nodes.Where(m => m.Type == ResourceType.Stone).Sum(m => m.Amount)}\r\n");
+            _bot.Actions = null;
+            _bot.Map = null;
+            _bot.PendingActions = null;            
+            Log(Newtonsoft.Json.JsonConvert.SerializeObject(_bot));
+            Log("Useless nodes: " + Newtonsoft.Json.JsonConvert.SerializeObject(nodes.Values.Where(m => m.ScoreVal < UnitScoreCost).OrderBy(m => m.ScoreVal).ToList()));
+
         }
 
         int scouts = 0;
@@ -740,7 +675,7 @@ namespace BitchAssBot.Services
             return false;
         }
 
-        List<CommandAction> Scout(int units)
+        List<CommandAction> Scout(ref int units)
         {
             List<CommandAction> actions = new List<CommandAction>();
             var tmpTowers = this._gameState.World.Map.ScoutTowers.OrderBy(m => GetDistance(m)).ToList();
@@ -755,7 +690,7 @@ namespace BitchAssBot.Services
                     units--;
 
 
-                    Console.WriteLine($"Sending scouts to {this._gameState.World.Map.ScoutTowers[i].Id}");
+                    Log($"Sending scouts to {this._gameState.World.Map.ScoutTowers[i].Id}");
                     actions.Add(new CommandAction()
                     {
                         Type = ActionType.Scout,
@@ -787,7 +722,7 @@ namespace BitchAssBot.Services
 
             }
 
-            //Console.WriteLine($"Resource {x.Id.ToString()} type {x.Type.ToString()} worktime {x.WorkTime} Amount {x.Amount} Remaining {tmpState.Remaining} Units {Resources} Current Units: {x.CurrentUnits}");
+            //Log($"Resource {x.Id.ToString()} type {x.Type.ToString()} worktime {x.WorkTime} Amount {x.Amount} Remaining {tmpState.Remaining} Units {Resources} Current Units: {x.CurrentUnits}");
             if (Resources > 0)
                 return tmpState.AddAction(Resources, (int)Math.Round(GetDistance(x)), _bot.Tick);
             else return null;
@@ -848,7 +783,50 @@ namespace BitchAssBot.Services
 
             return (decimal)distance;
         }
+        public EngineConfigDto GetEngineConfigDto()
+        {
+            return _engineConfigDto;
+        }
 
+        public void SetEngineConfigDto(EngineConfigDto engineConfigDto)
+        {
+            _engineConfigDto = engineConfigDto;
+            if (!Haveeverything && engineConfigDto!=null)
+            {
+                cycle = _engineConfigDto.ProcessTick;
+                foodconsumption = (decimal)_engineConfigDto.UnitConsumptionRatio.Food;
+                woodconsumption = (decimal)_engineConfigDto.UnitConsumptionRatio.Wood;
+                stoneconsumption = (decimal)_engineConfigDto.UnitConsumptionRatio.Stone;
+                heatconsumption = (decimal)_engineConfigDto.UnitConsumptionRatio.Heat;
+                campfirecost = _engineConfigDto.ResourceGenerationConfig.Campfire.ResourceConsumption[ResourceType.Wood].First();
+                campfirereward = (decimal)_engineConfigDto.ResourceGenerationConfig.Campfire.RewardRange[0];
+                maxTicks = _engineConfigDto.MaxTicks;
+                decimal heatcost = (campfirecost / campfirereward);
+                UnitScoreCost = ((foodconsumption * _engineConfigDto.ResourceScoreMultiplier.Food)
+                    + (woodconsumption * _engineConfigDto.ResourceScoreMultiplier.Wood)
+                    + (heatconsumption * (heatcost) * _engineConfigDto.ResourceScoreMultiplier.Wood)
+                    + (stoneconsumption * _engineConfigDto.ResourceScoreMultiplier.Stone)) / cycle;
+                Haveeverything = true;
+            }
+        }
+        
+        public static void Log(string s)
+        {
+            if (console)
+            Console.WriteLine(s+"\r\n");
+
+            if (logging)
+            {
+                try
+                {
+                    System.IO.File.AppendAllText("log.txt", s + "\r\n");
+                }
+                catch
+                {
+
+                }
+            }
+        }
     }
 
     public class nodestate
@@ -869,6 +847,7 @@ namespace BitchAssBot.Services
         internal int maxamount = 0;
         public int Remaining { get; private set; }
         public int TravelTime { get; set; }
+        public decimal ScoreVal { get { return  Reward * ScoreMultiplier()/(decimal)TravelTime; } }
         public nodestate(ResourceNode node, decimal Distance)
         {
             PendingInstructions = new List<NodeInstruction>();
@@ -876,6 +855,19 @@ namespace BitchAssBot.Services
             this.Reward = node.Reward;
             
             TravelTime = (int)Math.Round( Distance) + (Node.WorkTime) + 2;
+        }
+        int scoremulti = 0;
+        decimal ScoreMultiplier()
+        {
+            if (scoremulti==0)
+                switch (node.Type)
+                {
+                    case ResourceType.Food: scoremulti = BotService._engineConfigDto.ResourceScoreMultiplier.Food; break;
+                    case ResourceType.Gold: scoremulti = BotService._engineConfigDto.ResourceScoreMultiplier.Gold; break;                    
+                    case ResourceType.Stone: scoremulti = BotService._engineConfigDto.ResourceScoreMultiplier.Stone; break;
+                    case ResourceType.Wood: scoremulti = BotService._engineConfigDto.ResourceScoreMultiplier.Wood; break;
+                }
+            return scoremulti;
         }
         internal ActionType GetAction()
         {
@@ -929,7 +921,7 @@ namespace BitchAssBot.Services
                 {
                     if (x.ExpectedResources == 0 && Reward > 0)
                         x.ExpectedResources = x.Units * Reward;
-                    //Console.WriteLine($"{x.Units} Units returned from {node.Id} with {x.ExpectedResources} {node.Type.ToString()}. Expected back on tick {x.ExpectedReturn}");
+                    //Log($"{x.Units} Units returned from {node.Id} with {x.ExpectedResources} {node.Type.ToString()}. Expected back on tick {x.ExpectedReturn}");
                     PendingInstructions.Remove(x);
 
                 }

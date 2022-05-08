@@ -13,5 +13,6 @@ namespace Domain.Models
         public int MaxPopulation { get; set; }// max population //add to readme
         public IList<double> PopulationChangeFactorRange { get; set; }// -0.05, 0.05 //add to readme
         public TierResourceConstraints TierResourceConstraints { get; set; }// Food, Wood, Stone //add to readme
+        public TierResourceConstraints tierMaxResources { get; set; }// Food, Wood, Stone //add to readme
     }
 }

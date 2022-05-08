@@ -101,7 +101,14 @@ namespace BitchAssBot
                                     connection.InvokeAsync("SendPlayerCommand", botService.GetPlayerCommand());
                                 }
                             });
+                        connection.On<EngineConfigDto>(
+                           "ReceiveConfigValues",
+                           (engineConfigDto) =>
+                           {
+                               Console.WriteLine("engineConfigDto hit");
 
+                               botService.SetEngineConfigDto(engineConfigDto);
+                           });
                         var token = Environment.GetEnvironmentVariable("REGISTRATION_TOKEN");
                         token = !string.IsNullOrWhiteSpace(token) ? token : Guid.NewGuid().ToString();
 

@@ -8,6 +8,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Services\BotService - Copy.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore" Version="2.2.0" />
     <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="5.0.1" />
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="5.0.0" />
@@ -17,6 +21,7 @@
 
   <ItemGroup>
     <None Include="appsettings.json" CopyToOutputDirectory="Always" />
+    <None Include="Services\BotService - Copy.cs" />
   </ItemGroup>
 
 
