@@ -40,7 +40,7 @@ namespace BitchAssBot
             var environmentIp = Environment.GetEnvironmentVariable("RUNNER_IPV4")?? "http://localhost";
             var ip = !string.IsNullOrWhiteSpace(environmentIp) ? environmentIp : Configuration.GetSection("RunnerIP").Value;
             ip = ip.StartsWith("http://") ? ip : "http://" + ip;
-
+            bool started = false;
             var port = Configuration.GetSection("RunnerPort");
 
             var url = ip + ":" + port.Value + "/runnerhub";
@@ -81,6 +81,8 @@ namespace BitchAssBot
                                     {
                                         Id = id
                                     });
+                                botService.Id = id;
+                                Console.WriteLine($"Bot Id: {id}");
                             });
 
                         /* Get the current WorldState along with the last known state of the current client. */
@@ -106,19 +108,40 @@ namespace BitchAssBot
                            (engineConfigDto) =>
                            {
                                Console.WriteLine("engineConfigDto hit");
-
                                botService.SetEngineConfigDto(engineConfigDto);
+                               
                            });
                         var token = Environment.GetEnvironmentVariable("REGISTRATION_TOKEN");
                         token = !string.IsNullOrWhiteSpace(token) ? token : Guid.NewGuid().ToString();
-
+                        //Console.WriteLine(token);
                         Thread.Sleep(1000);
                         Console.WriteLine("Registering with the runner...");
-                        connection.SendAsync("Register", token, "Seuntj1e");
+                        connection.SendAsync("Register", token, "Seuntj1e__");
 
                         while (connection.State == HubConnectionState.Connected)
                         {
                             Thread.Sleep(30);
+                            
+                            /*if (!botService.started)
+                            {
+                                try
+                                {
+                                    Console.WriteLine("Attempting early scout");
+                                    int units = 1;
+                                    var tmp = botService.Scout(ref units);
+                                    if (tmp != null && tmp.Count > 0)
+                                    {
+                                        PlayerCommand playerCommand = new PlayerCommand();
+                                        playerCommand.PlayerId = botService.Id;
+                                        playerCommand.Actions.AddRange(tmp);
+                                        connection.InvokeAsync("SendPlayerCommand", botService.GetPlayerCommand());
+                                    }
+                                }
+                                catch (Exception e)
+                                {
+
+                                }
+                            }*/
                            // Console.WriteLine($"ConState: {connection.State}");
                            // Console.WriteLine($"Bot: {botService.GetBot()?.Id.ToString()}");
 
