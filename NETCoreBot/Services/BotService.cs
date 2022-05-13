@@ -435,7 +435,7 @@ namespace BitchAssBot.Services
                                                 woodunits = oldheat - heatunits;
                                             }
                                             int newwood = 0;
-                                            while (woodunits > 0 && index < Woods.Count && dto.Wood+newwood<CurrentTier.tierMaxResources.Wood)
+                                            while (woodunits > 0 && index < Woods.Count )
                                             {
                                                 var closestnode = Woods[index];// nodes.Values.Find(m => m.Node.Type == ResourceType.Wood && m.Remaining > 0);
                                                                                //var closestnode = ownNodes.Find(m => m.Type == ResourceType.Food && (m.Amount > 2 * dto.Population || m.Amount > 1000));
