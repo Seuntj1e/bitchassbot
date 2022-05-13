@@ -419,7 +419,7 @@ namespace BitchAssBot.Services
                                             {
                                                 heatunits += woodunits;
                                                 int oldheat = heatunits;
-                                                //if (dto.CurrentTierLevel < 6)
+                                                if (dto.CurrentTierLevel < 6)
                                                 {
                                                     if (dto.Wood - (campfires*campfirecost)- (heatunits * campfirecost) <=requiredwood)
                                                     {
@@ -428,11 +428,15 @@ namespace BitchAssBot.Services
                                                             tmp = 0;
                                                         heatunits = (int)tmp;
                                                     }
+                                                    heatunits = (int)Math.Min((double)heatunits, (double)((HeatRemaining - dto.Heat) / campfirereward));
+                                                    heatunits = (int)Math.Min((double)heatunits, Math.Floor(dto.Wood / campfirecost));
+                                                    heatunits = Math.Max(heatunits, 0);
+                                                    woodunits = oldheat - heatunits;
                                                 }
-                                                heatunits = (int)Math.Min((double)heatunits, (double)((HeatRemaining - dto.Heat) / campfirereward));
-                                                heatunits = (int)Math.Min((double)heatunits, Math.Floor(dto.Wood / campfirecost));
-                                                heatunits = Math.Max(heatunits, 0);
-                                                woodunits = oldheat - heatunits;
+                                                else
+                                                {
+                                                    woodunits += heatunits;
+                                                }
                                             }
                                             int newwood = 0;
                                             while (woodunits > 0 && index < Woods.Count )
@@ -469,7 +473,7 @@ namespace BitchAssBot.Services
                                     }
                                     else
                                     {
-                                        var Resources = nodes.Values.Where(m => m.Remaining > 0).OrderByDescending(m => m.ScoreVal).ToList();
+                                        var Resources = nodes.Values.Where(m => m.Node.Amount > 0).OrderByDescending(m => m.ScoreVal).ToList();
                                         units = dto.AvailableUnits;                                        
                                         
                                         for (int i = 0; i < Resources.Count && units > 0; i++)
@@ -575,7 +579,7 @@ namespace BitchAssBot.Services
 
                                 if (foodunits > 0)
                                 {
-                                    var closestnode = ClosetstNodes.Find(m => m.Node.Type == ResourceType.Food && m.Remaining > foodunits * m.Reward);
+                                    var closestnode = ClosetstNodes.Find(m => m.Node.Type == ResourceType.Food && m.Node.Amount > foodunits * m.Reward);
                                     var tmpAction = MineNode(closestnode.Node, ref foodunits);
                                     if (tmpAction != null)
                                         playerCommand.Actions.Add(tmpAction);
@@ -584,7 +588,7 @@ namespace BitchAssBot.Services
                                 }
                                 if (woodunits > 0)
                                 {
-                                    var closestnode = ClosetstNodes.Find(m => m.Node.Type == ResourceType.Wood && m.Remaining > woodunits * m.Reward);
+                                    var closestnode = ClosetstNodes.Find(m => m.Node.Type == ResourceType.Wood && m.Node.Amount > woodunits * m.Reward);
                                     var tmpAction = MineNode(closestnode.Node, ref woodunits);
                                     if (tmpAction != null)
                                         playerCommand.Actions.Add(tmpAction);
@@ -592,7 +596,7 @@ namespace BitchAssBot.Services
                                 }
                                 if (stoneunits > 0)
                                 {
-                                    var closestnode = ClosetstNodes.Find(m => m.Node.Type == ResourceType.Stone && m.Remaining > stoneunits);
+                                    var closestnode = ClosetstNodes.Find(m => m.Node.Type == ResourceType.Stone && m.Node.Amount > stoneunits);
                                     if (closestnode != null)
                                     {
                                         var tmpAction = MineNode(closestnode.Node, ref stoneunits);
@@ -933,9 +937,9 @@ namespace BitchAssBot.Services
                 return null;
             }
             var tmpInstruction = new NodeInstruction { ExpectedReturn = tick + TravelTime, Type= node.Type };
-            if (Remaining > 0 || node.RegenerationRate != null)
+            if (node.Amount > 0 || node.RegenerationRate != null)
             {
-                int Available = Remaining;
+                int Available = node.Amount;
                 if (node.RegenerationRate != null)
                 {
                     Available += (node.RegenerationRate.Amount / node.RegenerationRate.Ticks * TravelTime);
