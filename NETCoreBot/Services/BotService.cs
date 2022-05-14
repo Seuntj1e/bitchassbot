@@ -9,7 +9,7 @@ namespace BitchAssBot.Services
 {
     public class BotService
     {
-        static bool console = false;
+        static bool console = true;
         static bool logging = false;
         static bool everytick = false;
         public bool started = false;
@@ -86,8 +86,8 @@ namespace BitchAssBot.Services
             try
             {
                 var dto = this._gameState.Bots.Find(go => go.Id == _bot.Id);
-                if (console && (dto.Tick % cycle == 1 || everytick))
-                    Console.SetCursorPosition(0, 0);
+                /*if (console && (dto.Tick % cycle == 1 || everytick))
+                    Console.SetCursorPosition(0, 0);*/
                 var _previousstate = this._previousstate;
                 this._previousstate = dto;
                 if (_previousstate == null)
@@ -720,7 +720,8 @@ namespace BitchAssBot.Services
         {
             //Haveeverything = (cycle > 0 && foodconsumption > 0 && woodconsumption > 0 && campfirecost > 0 && campfirereward > 0 && stoneconsumption > 0 && heatconsumption > 0);
             console = true;
-            Log($"Measurements: Cycle: {cycle}\r\n" +
+            Log($"Version:{System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString()}\r\n" +
+                $"Measurements: Cycle: {cycle}\r\n" +
                 $"foodconsumption: {foodconsumption}\r\n" +
                 $"woodconsumption: {woodconsumption}\r\n" +
                 $"campfirecost: {campfirecost}\r\n" +
