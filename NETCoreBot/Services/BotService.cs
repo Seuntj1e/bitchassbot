@@ -11,7 +11,7 @@ namespace BitchAssBot.Services
     {
         static bool console = false;
         static bool logging = false;
-        static bool everytick = true;
+        static bool everytick = false;
         public bool started = false;
 
         public Guid Id;
@@ -86,7 +86,7 @@ namespace BitchAssBot.Services
             try
             {
                 var dto = this._gameState.Bots.Find(go => go.Id == _bot.Id);
-                if (console && dto.Tick % cycle == 1 || everytick)
+                if (console && (dto.Tick % cycle == 1 || everytick))
                     Console.SetCursorPosition(0, 0);
                 var _previousstate = this._previousstate;
                 this._previousstate = dto;
