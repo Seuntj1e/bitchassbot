@@ -92,7 +92,7 @@ namespace BitchAssBot
                             "ReceiveBotState",
                             (gameStateDto) =>
                             {
-                                //Console.WriteLine("GameStateDTO hit");
+                                Console.WriteLine("GameStateDTO hit: " + gameStateDto?.World.CurrentTick);
                                 var gameState = new GameState { World = null, Bots = new List<BotDto>() };
                                 gameState.World = gameStateDto.World;
                                 gameState.Bots = gameStateDto.Bots;
