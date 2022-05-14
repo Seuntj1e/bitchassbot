@@ -96,7 +96,7 @@ namespace BitchAssBot.Services
                 {
                     issueing = true;
                     var CurrentTier = _engineConfigDto.PopulationTiers[dto.CurrentTierLevel];
-                    var tmpNodes = nodes.Values.OrderByDescending(m => m.ResourceValue);
+                    var tmpNodes = nodes.Values.OrderByDescending(m => m.ResourceValue).ToList();
                     int units = dto.AvailableUnits;
                     var ownNodes = this._gameState.World.Map.Nodes.OrderBy(m => GetDistance(m)).ToList();
                     for  (int i =0; i<ownNodes.Count;i++)
@@ -139,6 +139,8 @@ namespace BitchAssBot.Services
                     if (units == 0)
                     {
                         issueing = false;
+                        wtch.Stop();
+                        totalticks += wtch.ElapsedTicks;
                         return playerCommand;
                     }
                     //playerCommand.PlayerId = this._bot.Id;
@@ -308,15 +310,19 @@ namespace BitchAssBot.Services
                                     }
                                     else
                                     {
-                                        switch (resourcerotation[lastindex++])
+                                        while (units > 0)
                                         {
-                                            case ResourceType.Food: foodunits += units; units = 0; break;
-                                            case ResourceType.Wood: woodunits += units; units = 0; break;
-                                            case ResourceType.Heat: heatunits += units; units = 0; break;
-                                            case ResourceType.Stone: stoneunits += units; units = 0; break;
+                                            switch (resourcerotation[lastindex++])
+                                            {
+                                                case ResourceType.Food: foodunits++; units--; break;
+                                                case ResourceType.Wood: woodunits++; units--; break;
+                                                case ResourceType.Heat: heatunits++; units--; break;
+                                                case ResourceType.Stone: stoneunits++; units--; break;
+                                            }
+                                            if (lastindex >= resourcerotation.Length)
+                                                lastindex = 0;
                                         }
-                                        if (lastindex >= resourcerotation.Length)
-                                            lastindex = 0;
+                                       
                                     }
 
                                     if (dto.Tick % cycle == 1 && dto.Tick > 1000)
@@ -414,14 +420,49 @@ namespace BitchAssBot.Services
                                                 woodunits += foodunits;
                                             index = 0;
                                             if (dto.Heat > requiredheat)
+                                            {
                                                 woodunits += heatunits;
+                                                //heatunits = 0;
+                                            }
                                             if (CurrentTier.tierMaxResources.Wood * 0.8 <= (double)dto.Wood && booming )
                                             {
+
+                                                /*
+                                                 
+                                                determine how much wood is coming back in 3 ticks
+                                                determine how many campfires to make space for that
+                                                set heatunits to that.
+                                                lumber with everthing else
+
+                                                 */
+
+                                                //double woody = 0;
+                                                //for (int i =0; i< dto.Actions.Count;i++)
+                                                //{
+                                                //    if (nodes.ContainsKey(dto.Actions[i].TargetNodeId))
+                                                //    {
+                                                //        if (dto.Actions[i].TickActionCompleted == dto.Tick + 1)//???? 3? 2? I DON"T FUCKING KNOW
+                                                //        {
+                                                //            woody += dto.Actions[i].NumberOfUnits * nodes[dto.Actions[i].TargetNodeId].Reward;
+                                                //        }
+                                                //    }
+                                                //}
+
+                                                //if (dto.Wood + woody > CurrentTier.tierMaxResources.Wood)
+                                                //{
+                                                //    int newheatunits = (int)((dto.Wood + woody - CurrentTier.tierMaxResources.Wood) / campfirecost);
+                                                //    if (newheatunits < heatunits)
+                                                //    {
+                                                //        woodunits = heatunits - newheatunits;
+                                                //        heatunits = newheatunits;
+                                                //    }
+                                                //}
+
                                                 heatunits += woodunits;
                                                 int oldheat = heatunits;
                                                 if (dto.CurrentTierLevel < 6)
                                                 {
-                                                    if (dto.Wood - (campfires*campfirecost)- (heatunits * campfirecost) <=requiredwood)
+                                                    if (dto.Wood - (campfires * campfirecost) - (heatunits * campfirecost) <= requiredwood)
                                                     {
                                                         var tmp = (dto.Wood - requiredwood) * campfirecost;
                                                         if (tmp < 0)
@@ -438,6 +479,10 @@ namespace BitchAssBot.Services
                                                     woodunits += heatunits;
                                                 }
                                             }
+                                            /*if (dto.CurrentTierLevel>=5)
+                                            {
+                                                woodunits += heatunits;
+                                            }*/
                                             int newwood = 0;
                                             while (woodunits > 0 && index < Woods.Count )
                                             {
@@ -950,8 +995,7 @@ namespace BitchAssBot.Services
                     return null;
                 }
                 int availableUnits = node.MaxUnits;// - PendingInstructions.Where(m => m.ExpectedReturn > tick + TravelTime).Sum(m => m.Units);
-                if (availableUnits > node.MaxUnits)
-                    availableUnits = node.MaxUnits;
+               
                 if (availableUnits <= 0)
                 {
                     units = 0;
