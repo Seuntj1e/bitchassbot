@@ -9,7 +9,7 @@ namespace BitchAssBot.Services
 {
     public class BotService
     {
-        static bool console = true;
+        static bool console = false;
         static bool logging = false;
         static bool everytick = false;
         public bool started = false;
