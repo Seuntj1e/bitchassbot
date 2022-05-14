@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Domain.Models;
 using System.Diagnostics;
+using System.Reflection;
 
 namespace BitchAssBot
 {
@@ -20,6 +21,7 @@ namespace BitchAssBot
 
         private static async Task Main(string[] args)
         {
+            Console.WriteLine(Assembly.GetExecutingAssembly().GetName().Version.ToString());
             //if (train)
             //{
             //    Process process; 
