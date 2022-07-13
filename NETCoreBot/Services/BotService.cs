@@ -8,8 +8,8 @@ namespace BitchAssBot.Services
 {
     public class BotService
     {
-        static bool console = true;
-        static bool logging = true;
+        static bool console = false;
+        static bool logging = false;
         static bool everytick = false;
         public bool started = false;
 
@@ -291,7 +291,7 @@ namespace BitchAssBot.Services
                                         }
 
 
-                                        if (booming)
+                                        /*if (booming)
                                         {
                                             HeatCap = _engineConfigDto.PopulationTiers[_engineConfigDto.PopulationTiers.Count-2].MaxPopulation * 2;
                                             HeatCap = Math.Min(HeatCap, dto.Population * 2.5);
@@ -299,7 +299,7 @@ namespace BitchAssBot.Services
                                         else
                                         {
                                             HeatCap = 0;
-                                        }
+                                        }*/
                                         if (dto.Tick >= maxTicks - (cycle))
                                             HeatCap = 0;
 
@@ -528,8 +528,8 @@ namespace BitchAssBot.Services
                                                 //        heatunits = newheatunits;
                                                 //    }
                                                 //}
-                                                buildunits = Math.Min(10, woodunits);
-                                                woodunits-=buildunits;
+                                                buildunits = (1);
+                                                woodunits--;
                                                 heatunits += woodunits;
                                                 int oldheat = heatunits;
                                                 if (dto.CurrentTierLevel < 6)
