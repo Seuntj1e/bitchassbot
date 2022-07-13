@@ -18,7 +18,29 @@ namespace BitchAssBot.Models
         public Position()
         {
         }
+
+        public Position checknext(int direction)
+        {
+            return new Position(this, direction);
+        }
         
+        public Position(Position old, int direction)
+        {
+            this.X = old.X;
+            this.Y = old.Y;
+            switch (direction)
+            {
+                case 1: X++; break;
+                case 2: Y++; break;
+                case 3: X--; break;
+                case 4: Y--; break;
+                case 5: X++;Y++ ; break;
+                case 6: X++;Y-- ; break;
+                case 7: X--; Y++; break;
+                case 8: X--; Y-- ; break;
+            }
+        }
+
         protected bool Equals(Position other)
         {
             return X.Equals(other?.X) && Y.Equals(other?.Y);
