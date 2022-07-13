@@ -1,10 +1,10 @@
-﻿using System;
+﻿using BitchAssBot.Enums;
+using System;
 using System.Collections.Generic;
 using System.Text;
 using Newtonsoft.Json;
-using BitchAssBot.Enums;
 
-namespace Domain.Models
+namespace BitchAssBot.Models
 {
     public class CommandAction
     {

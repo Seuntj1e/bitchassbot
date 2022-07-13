@@ -1,4 +1,4 @@
-﻿namespace BitchAssBot.Enums
+namespace BitchAssBot.Models
 {
     public enum ResourceType
     {
@@ -7,6 +7,7 @@
         Food,
         Stone,
         Gold,
-        Heat
+        Heat,
+        Available 
     }
 }

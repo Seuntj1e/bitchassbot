@@ -1,18 +1,12 @@
-﻿using BitchAssBot.Models;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace Domain.Models
+namespace BitchAssBot.Models
 {
     public class PlayerCommand
     {
         public Guid? PlayerId { get; set; }
-        public List<CommandAction> Actions { get; set; }
-
-        public PlayerCommand()
-        {
-            this.Actions = new List<CommandAction>();
-        }
+        public List<CommandAction> Actions { get; set; } = new List<CommandAction>();
     }
 }

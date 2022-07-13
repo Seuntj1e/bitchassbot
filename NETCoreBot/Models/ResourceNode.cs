@@ -1,26 +1,21 @@
-﻿using BitchAssBot.Enums;
-using BitchAssBot.Models;
 using System.Collections.Generic;
+using System;
+using BitchAssBot.Enums;
 
-namespace Domain.Models
+namespace BitchAssBot.Models
 {
-    public class ResourceNode : GameObject
+    public class ResourceNode : Node
     {
-        public ResourceType Type { get; set; }
-
         public int Amount { get; set; }
-
-        public int MaxUnits { get; set; }
-
-        public int CurrentUnits { get; set; }
-
         public int Reward { get; set; }
-
         public int WorkTime { get; set; }
 
         public RegenerationRate RegenerationRate { get; set; }
 
-        public ResourceNode() : base(GameObjectType.ResourceNode)
+        public int CurrentRegenTick { get; set; }
+        public int MaxResourceAmount { get; set; }
+
+        public ResourceNode(Position position) : base(GameObjectType.ResourceNode, position)
         {
             CurrentUnits = 0;
         }
@@ -31,4 +26,5 @@ namespace Domain.Models
         public int Ticks { get; set; }
         public int Amount { get; set; }
     }
+
 }

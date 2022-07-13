@@ -1,14 +1,23 @@
+﻿using System;
 using BitchAssBot.Enums;
-using BitchAssBot.Models;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 
-namespace Domain.Models
+namespace BitchAssBot.Models
 {
-    public class Node
+    public class Node : GameObject
     {
-        public Position Position { get; set; }
-        
-        public ResourceType Resource { get; set; }
-        
-        public int ResourceCount { get; set; }
+        public ResourceType Type { get; set; }
+        public int MaxUnits { get; set; }
+        public int CurrentUnits { get; set; }
+        //TODO: can remove
+        public Guid TerritoryBase { get; set; }
+
+        public Node(GameObjectType gameObjectType, Position position) : base(gameObjectType, position)
+        {
+            CurrentUnits = 0;
+        }
     }
 }

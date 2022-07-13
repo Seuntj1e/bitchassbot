@@ -1,4 +1,4 @@
-﻿namespace Domain.Models
+﻿namespace BitchAssBot.Models
 {
     public class PlayerResult
     {
