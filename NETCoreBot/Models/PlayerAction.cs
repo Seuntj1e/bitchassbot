@@ -1,6 +1,5 @@
 using System;
 using BitchAssBot.Enums;
-using BitchAssBot.Models;
 using Newtonsoft.Json;
 
 namespace BitchAssBot.Models
@@ -9,7 +8,7 @@ namespace BitchAssBot.Models
     {
         public Guid TargetNodeId { get; set; }
         public int NumberOfUnits { get; set; }
-        public BotDto Bot { get; set; }
+        public BotObject Bot { get; set; }
         public int ExpectedCompletedTick { get; set; }
         public int TickReceived { get; set; }
         public int StartTick { get; set; }
@@ -41,7 +40,7 @@ namespace BitchAssBot.Models
 
         public void Remove()
         {
-            //Bot.RemoveAction(this);
+            Bot.RemoveAction(this);
         }
 
         public override string ToString()

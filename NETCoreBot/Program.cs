@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using System.Diagnostics;
 using System.Reflection;
+using Newtonsoft.Json;
 
 namespace BitchAssBot
 {
@@ -92,12 +93,13 @@ namespace BitchAssBot
                             (gameStateDto) =>
                             {
                                 //Console.WriteLine("GameStateDTO hit: " + gameStateDto?.World.CurrentTick);
+                                //BotService.fLog(gameStateDto.ToString());
                                 var gameState = new GameState { World = null, Bots = new List<BotDto>() };
                                 gameState.World = gameStateDto.World;
                                 gameState.Bots = gameStateDto.Bots;
                                 gameState.PopulationTiers = gameStateDto.PopulationTiers;
                                 botService.SetGameState(gameState);
-                                var bot = botService.GetBot();
+                                //var bot = botService.GetBot();
                                 if (botService.GetGameState().World != null)
                                 {
                                     //botService.ComputeNextPlayerAction(botService.GetPlayerCommand());
@@ -110,7 +112,7 @@ namespace BitchAssBot
                            {
                                Console.WriteLine("engineConfigDto hit");
                                botService.SetEngineConfigDto(engineConfigDto);
-                               
+                               BotService.Log(JsonConvert.SerializeObject(engineConfigDto));
                            });
                         var token = Environment.GetEnvironmentVariable("REGISTRATION_TOKEN");
                         token = !string.IsNullOrWhiteSpace(token) ? token : Guid.NewGuid().ToString();

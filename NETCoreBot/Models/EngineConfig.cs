@@ -133,6 +133,36 @@ namespace BitchAssBot.Models
         public int ScoreMultiplier { get; set; }
         public int BuildTime { get; set; }
         public Cost Cost { get; set; }
+        Cost actualcost;
+        public Cost ActualCost
+        {
+            get
+            {
+                if (actualcost == null)
+                {
+                    actualcost = new Cost { Gold=Cost.Gold, Wood=Cost.Wood, Stone=Cost.Stone };
+                }
+                return actualcost;
+            }
+        }
+        public int NumBuildings { get; private set; } = 0;
+        public void UpdateCosts(int numberofbuildings)
+        {
+            
+            if (numberofbuildings != NumBuildings)
+            {
+                NumBuildings = numberofbuildings;
+                ActualCost.Wood = GetBuildingCost(Cost.Wood, NumBuildings);
+                ActualCost.Stone = GetBuildingCost(Cost.Stone, NumBuildings);
+                ActualCost.Gold = GetBuildingCost(Cost.Gold, NumBuildings);
+            }
+        }
+        private static int GetBuildingCost(int numberOfBuildingsPerType, int cost) => cost + ((numberOfBuildingsPerType * cost) / 2);
+        public double weightedCost { get; private set; }
+        public void UpdateWeightedCost(double Wood, double Stone, double Gold)
+        {
+            weightedCost = ActualCost.Wood * Wood + ActualCost.Stone * Stone + ActualCost.Gold * Gold;
+        }
     }
 
     public class Cost

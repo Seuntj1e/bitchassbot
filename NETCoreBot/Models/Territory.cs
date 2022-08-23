@@ -1,33 +1,28 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 
 namespace BitchAssBot.Models
 {
-
     public class Territory
     {
-        public readonly HashSet<Position> PositionsInTerritory = new(new PositionComparer());
+        public readonly HashSet<Land> LandInTerritory = new(new PositionComparer());
 
 
-        public bool AddPosition(Position position)
+        public bool AddLand(Land land)
         {
-            return PositionsInTerritory.Add(position);
-        }
-
-        public void AddBuilding(BuildingObject building, ISet<Position> claimedPositions)
-        {
-            var buildingTerritory = building.GetPositionsInBuildingRadius();
-            PositionsInTerritory.UnionWith(buildingTerritory.Except(claimedPositions));
+            return LandInTerritory.Add(land);
         }
 
         public bool Contains(Position position)
         {
-            return PositionsInTerritory.Contains(position);
+            return LandInTerritory.Contains(position);
         }
 
-
-
+        public bool RemoveLand(Land land)
+        {
+            return LandInTerritory.Remove(land);
+        }
     }
-
 }

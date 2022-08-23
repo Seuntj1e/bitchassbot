@@ -11,6 +11,8 @@ namespace BitchAssBot.Models
         public ActionType Type { get; set; }
         public int Units { get; set; }
         public Guid Id { get; set; }
+        [JsonIgnore]
+        public Position Position { get; set; }
 
         public override string ToString()
         {

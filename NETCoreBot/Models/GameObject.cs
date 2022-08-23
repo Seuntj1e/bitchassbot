@@ -6,6 +6,7 @@ namespace BitchAssBot.Models
 {
     public class GameObject
     {
+        
         public Guid Id { get; set; }
         public GameObjectType GameObjectType { get; set; }
         public Position Position { get; set; }

@@ -1,4 +1,4 @@
-﻿using Domain.Models;
+﻿using BitchAssBot.Models;
 using BitchAssBot.Enums;
 using BitchAssBot.Models;
 using System;

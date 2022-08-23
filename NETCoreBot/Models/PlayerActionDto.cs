@@ -1,9 +1,8 @@
-﻿using System;
-using BitchAssBot.Enums;
+﻿using BitchAssBot.Enums;
+using System;
 
 namespace BitchAssBot.Models
 {
-
     public class PlayerActionDto
     {
         public Guid TargetNodeId { get; set; }

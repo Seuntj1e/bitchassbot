@@ -19,7 +19,7 @@ namespace BitchAssBot.Services
         private PlayerCommand _playerCommand;
         private GameState _gameState;
         public static EngineConfigDto _engineConfigDto;
-
+        HashSet<Position> AttemptedBuidings = new HashSet<Position>();
         Dictionary<Guid, nodestate> nodes = new Dictionary<Guid, nodestate>();
         Dictionary<Guid,int> towers = new Dictionary<Guid, int>();
         int campfires = 0;
@@ -53,14 +53,16 @@ namespace BitchAssBot.Services
         bool Haveeverything = false;
         bool expand = false;
         int lastindex = 0;
-        ResourceType[] resourcerotation = new ResourceType[] { ResourceType.Wood, ResourceType.Food,   ResourceType.Food, ResourceType.Wood, ResourceType.Food,  ResourceType.Heat, ResourceType.Food, ResourceType.Stone };
+        ResourceType[] resourcerotation = new ResourceType[] { ResourceType.Wood, ResourceType.Food, ResourceType.Food, ResourceType.Wood, ResourceType.Food, ResourceType.Food, ResourceType.Heat, ResourceType.Stone, ResourceType.Food, ResourceType.Gold, ResourceType.Heat, ResourceType.Wood };
+        ResourceType[] resourcerotation2 = new ResourceType[] { ResourceType.Gold, ResourceType.Stone, ResourceType.Wood};
         int MaxPOp = 0;
         bool singleplayer = false;
         bool booming = true;
         int HeatRemaining = 99999999;
         double woodconsuming = 0;
         double woodamount = 0;
-
+        Dictionary<BuildingType, Building> BuildingCost = new Dictionary<BuildingType, Building>();
+        int lastscouttick = 0;
         public BotService()
         {
             _playerAction = new CommandAction();
@@ -85,7 +87,7 @@ namespace BitchAssBot.Services
             started = true;
             PlayerCommand playerCommand = new PlayerCommand();
             playerCommand.PlayerId = this._bot.Id;
-
+            int unitsused = 0;
             try
             {
                 var dto = this._gameState.Bots.Find(go => go.Id == _bot.Id);
@@ -93,8 +95,15 @@ namespace BitchAssBot.Services
                     Console.SetCursorPosition(0, 0);*/
                 var _previousstate = this._previousstate;
                 this._previousstate = dto;
+                var CurrentTier = _engineConfigDto.PopulationTiers[dto.CurrentTierLevel];
+                var NextTier = _engineConfigDto.PopulationTiers[Math.Min(dto.CurrentTierLevel + 1, _engineConfigDto.PopulationTiers.Count - 1)];
+
                 if (_previousstate == null)
+                {
                     _previousstate = dto;
+                    _previousstate.Tick = -1;
+                    LogDetails(dto, CurrentTier);
+                }
                 if (!issueing && dto.Tick > _previousstate.Tick || dto.Tick == 0)
                 {
                     issueing = true;
@@ -104,18 +113,54 @@ namespace BitchAssBot.Services
                     Dictionary<Position, BuildingObject> buildings = new Dictionary<Position, BuildingObject>();
                     for (int i =0; i< _gameState.World.Map.AvailableNodes.Count;i++)
                     {
-                        if (dto.Territory.Contains(_gameState.World.Map.AvailableNodes[i].Position))
+                        if (dto.Territory.Contains(_gameState.World.Map.AvailableNodes[i].Position) 
+                            && !dto.Map.Nodes.Contains(_gameState.World.Map.AvailableNodes[i].Id)
+                            && !buildings.ContainsKey(_gameState.World.Map.AvailableNodes[i].Position)
+                            && !AttemptedBuidings.Contains(_gameState.World.Map.AvailableNodes[i].Position)
+                            )
                         {
+                            if (_gameState.World.Map.AvailableNodes[i].Position.X==34 && _gameState.World.Map.AvailableNodes[i].Position.Y==31)
+                            {
+
+                            }
                             abanodes.Add(_gameState.World.Map.AvailableNodes[i].Id, _gameState.World.Map.AvailableNodes[i]);
                             territory.Add(_gameState.World.Map.AvailableNodes[i].Position, _gameState.World.Map.AvailableNodes[i]);
                         }
                     }
+                    Dictionary<BuildingType, int> buildingcounts = new Dictionary<BuildingType, int>();
                     for (int i = 0; i< dto.Buildings.Count; i++)
                     {
                         buildings.Add(dto.Buildings[i].Position, dto.Buildings[i]);
+                        if (!buildingcounts.ContainsKey(dto.Buildings[i].Type))
+                            buildingcounts[dto.Buildings[i].Type] = 0;
+                        buildingcounts[dto.Buildings[i].Type]++;
                     }
-                    var CurrentTier = _engineConfigDto.PopulationTiers[dto.CurrentTierLevel];
-                    var NextTier = _engineConfigDto.PopulationTiers[Math.Min(dto.CurrentTierLevel+1, _engineConfigDto.PopulationTiers.Count-1)];
+                    for (int i =0; i< dto.PendingActions.Count;i++)
+                    {
+                        if ((int)dto.PendingActions[i].ActionType >= 6 && (int)dto.PendingActions[i].ActionType <= 10)
+                        {
+                            if (!buildingcounts.ContainsKey((BuildingType)dto.PendingActions[i].ActionType))
+                                buildingcounts[(BuildingType)dto.PendingActions[i].ActionType] = 0;
+                            buildingcounts[(BuildingType)dto.PendingActions[i].ActionType]++;
+                            BuildingCost[(BuildingType)dto.PendingActions[i].ActionType].UpdateCosts(buildingcounts[(BuildingType)dto.PendingActions[i].ActionType]);
+                            dto.Wood -= BuildingCost[(BuildingType)dto.PendingActions[i].ActionType].ActualCost.Wood;
+                            dto.Stone -= BuildingCost[(BuildingType)dto.PendingActions[i].ActionType].ActualCost.Stone;
+                            dto.Gold -= BuildingCost[(BuildingType)dto.PendingActions[i].ActionType].ActualCost.Gold;
+                        }
+                    }
+                    for (int i = 0; i < dto.Actions.Count; i++)
+                    {
+                        if ((int)dto.Actions[i].ActionType >= 6 && (int)dto.Actions[i].ActionType <= 10)
+                        {
+                            if (!buildingcounts.ContainsKey((BuildingType)dto.Actions[i].ActionType))
+                                buildingcounts[(BuildingType)dto.Actions[i].ActionType] = 0;
+                            buildingcounts[(BuildingType)dto.Actions[i].ActionType]++;
+                            dto.Wood -= BuildingCost[(BuildingType)dto.Actions[i].ActionType].ActualCost.Wood;
+                            dto.Stone -= BuildingCost[(BuildingType)dto.Actions[i].ActionType].ActualCost.Stone;
+                            dto.Gold -= BuildingCost[(BuildingType)dto.Actions[i].ActionType].ActualCost.Gold;
+                        }
+                    }
+                    
                     var tmpNodes = nodes.Values.OrderByDescending(m => m.ResourceValue).ToList();
                     int units = dto.AvailableUnits;
                     var ownNodes = this._gameState.World.Map.Nodes.OrderBy(m => GetDistance(m)).ToList();
@@ -144,12 +189,7 @@ namespace BitchAssBot.Services
 
 
                     if (dto.Tick % cycle == 1 || everytick)
-                        Log($"\r\n{DateTime.Now: HH:mm:ss ffff} Population: {dto.Population} Units: {dto.AvailableUnits} Traveling FCUKED NODES { this._gameState.World.Map.Nodes.Count} TICK {dto.Tick} HEATCAP {HeatCap}".PadRight(10) +
-                            $"\r\nFood: {dto.Food} Wood: {dto.Wood} Stone: {dto.Stone} gold: {dto.Gold} Heat: {dto.Heat} Heat consume {HeatRemaining}".PadRight(10) +
-                            $"\r\nFarm: FCUKED Lumb: FCUKED Mines: FCUKED gold: ???? scout: FCUKED".PadRight(10) +
-                            $"\r\nWoodamount {woodamount} {(booming ? "BOOMING" : "NOT     ")}".PadRight(10)
-
-                            );
+                        LogDetails(dto, CurrentTier);
 
                     if ((cycle > 0 && dto.Tick % cycle == 1))
                     {
@@ -174,7 +214,7 @@ namespace BitchAssBot.Services
                         if (ownNodes.Count() > 0 && GetDistance(ownNodes[0]) < 5)
                         {
 
-                            if (Haveeverything && dto.Population >= 50 /*|| dto.CurrentTierLevel>0*/)
+                            if (Haveeverything && CurrentTier.Level>0/*|| dto.CurrentTierLevel>0*/)
                             {
 
                                 {
@@ -230,10 +270,10 @@ namespace BitchAssBot.Services
                                     }
 
 
-                                    if (foods.Count <= 2 || Woods.Count <= 2 || Stones.Count <= 2 || Golds.Count<=2)
+                                    if ((foods.Count <= 2 || Woods.Count <= 2 || Stones.Count <= 1 || Golds.Count<=1) && dto.Tick-lastscouttick>15)
                                     {
-
-                                        int tunits = Math.Max(3, units);
+                                        lastscouttick = dto.Tick;
+                                        int tunits = Math.Min(3, units);
                                         //int sent = tunits;
                                         List<CommandAction> commands = Scout(ref tunits);
                                         if (commands.Count > 0)
@@ -277,18 +317,22 @@ namespace BitchAssBot.Services
                                         if (heatunits > units)
                                             heatunits = units;
 
-                                        //dto.Food
-                                        if (dto.Tick < maxTicks)
+                                        if (dto.Tick % cycle == 1)
                                         {
-                                            //set the heatcap according to available food
-
-                                            if (dto.Tick > 1000 && UnscoutedTowers() && units > 0)
-                                            {
-                                                var Result = Scout(ref units);
-                                                if (Result.Count > 0)
-                                                    playerCommand.Actions.AddRange(Result);
-                                            }
+                                            int scouted = Math.Min(5, units);
+                                            units -= scouted;
+                                            var Result = Scout(ref scouted);
+                                            if (Result.Count > 0)
+                                                playerCommand.Actions.AddRange(Result);
+                                            units += scouted;
                                         }
+                                        /*if (dto.Tick > 1000 && UnscoutedTowers() && units > 0)
+                                        {
+                                            var Result = Scout(ref units);
+                                            if (Result.Count > 0)
+                                                playerCommand.Actions.AddRange(Result);
+                                        }*/
+                                        
 
 
                                         /*if (booming)
@@ -352,7 +396,9 @@ namespace BitchAssBot.Services
                                     {
                                         while (units > 0)
                                         {
-                                            switch (resourcerotation[lastindex++])
+                                            if (++lastindex >= resourcerotation.Length)
+                                                lastindex = 0;
+                                            switch (resourcerotation[lastindex])
                                             {
                                                 case ResourceType.Food: foodunits++; units--; break;
                                                 case ResourceType.Wood: woodunits++; units--; break;
@@ -360,8 +406,7 @@ namespace BitchAssBot.Services
                                                 case ResourceType.Stone: stoneunits++; units--; break;
                                                 case ResourceType.Gold: goldunits++; units--; break;
                                             }
-                                            if (lastindex >= resourcerotation.Length)
-                                                lastindex = 0;
+                                           
                                         }
                                        
                                     }
@@ -497,39 +542,11 @@ namespace BitchAssBot.Services
                                             }
                                             if (CurrentTier.TierMaxResources.Wood * 0.8 <= (double)dto.Wood && booming )
                                             {
-
-                                                /*
-                                                 
-                                                determine how much wood is coming back in 3 ticks
-                                                determine how many campfires to make space for that
-                                                set heatunits to that.
-                                                lumber with everthing else
-
-                                                 */
-
-                                                //double woody = 0;
-                                                //for (int i =0; i< dto.Actions.Count;i++)
-                                                //{
-                                                //    if (nodes.ContainsKey(dto.Actions[i].TargetNodeId))
-                                                //    {
-                                                //        if (dto.Actions[i].TickActionCompleted == dto.Tick + 1)//???? 3? 2? I DON"T FUCKING KNOW
-                                                //        {
-                                                //            woody += dto.Actions[i].NumberOfUnits * nodes[dto.Actions[i].TargetNodeId].Reward;
-                                                //        }
-                                                //    }
-                                                //}
-
-                                                //if (dto.Wood + woody > CurrentTier.tierMaxResources.Wood)
-                                                //{
-                                                //    int newheatunits = (int)((dto.Wood + woody - CurrentTier.tierMaxResources.Wood) / campfirecost);
-                                                //    if (newheatunits < heatunits)
-                                                //    {
-                                                //        woodunits = heatunits - newheatunits;
-                                                //        heatunits = newheatunits;
-                                                //    }
-                                                //}
-                                                buildunits = (1);
-                                                woodunits--;
+                                                if (woodunits > 0)
+                                                {
+                                                    buildunits = (1);
+                                                    woodunits--;
+                                                }
                                                 heatunits += woodunits;
                                                 int oldheat = heatunits;
                                                 if (dto.CurrentTierLevel < 6)
@@ -587,117 +604,21 @@ namespace BitchAssBot.Services
                                             {
                                                 //can build?
                                                 //determine cheapest building to build
-                                                int quarries = 0;
-                                                int farms = 0;
-                                                int mills = 0;
-                                                for (int i=0;i<dto.Buildings.Count;i++)
+                                                for (int i = 6;i<=10;i++)
                                                 {
-                                                    switch (dto.Buildings[i].Type)
-                                                    {
-                                                        case BuildingType.FarmersGuild:farms++;break;
-                                                        case BuildingType.LumberMill: mills++; break;
-                                                        case BuildingType.Quarry: quarries++; break;
-                                                    }
-                                                }
-                                                quarries += dto.PendingActions.Count(m => m.ActionType == ActionType.Quarry) + dto.Actions.Count(m => m.ActionType == ActionType.Quarry);
-                                                farms += dto.PendingActions.Count(m => m.ActionType == ActionType.FarmersGuild) + dto.Actions.Count(m => m.ActionType == ActionType.FarmersGuild);
-                                                mills += dto.PendingActions.Count(m => m.ActionType == ActionType.LumberMill) + dto.Actions.Count(m => m.ActionType == ActionType.LumberMill);
-                                                double quarrycost = 0;
-                                                double farmcostcost = 0;
-                                                double millcost = 0;
-                                                double woodcost = 0;
-                                                double stonecost = 0;
-                                                double goldcost = 0;
-                                                List<Guid> newItems = new List<Guid>();
-
-
-                                                foreach (var x in abanodes.Values)
-                                                {
-
-                                                    var pendingaction = dto.PendingActions.Find(m => m.TargetNodeId == x.Id);
-                                                    var action = dto.Actions.Find(m => m.TargetNodeId == x.Id);
-                                                    if (pendingaction == null
-                                                            && action == null
-                                                            && !newItems.Contains(x.Id))
-                                                    {
-                                                        for (int i = 1; i <= 4; i++)
-                                                        {
-                                                            var tmpPos = x.Position.checknext(i);
-                                                            var ExistingBuilding = dto.Buildings.Find(m => m.Position == tmpPos);
-                                                            if (!dto.Territory.Contains(tmpPos)
-                                                                && ExistingBuilding == null
-                                                                )
-                                                            {
-                                                                if (!edge.ContainsKey(x.Position))
-                                                                    edge.Add(x.Position, x);
-                                                                break;
-
-                                                            }
-                                                        }
-                                                    }
-                                                    else
-                                                    {
-
-                                                    }
+                                                    BuildingCost[(BuildingType)i].UpdateWeightedCost(wf, sf, gf);
                                                 }
                                                 
-
+                                               List<Guid> newItems = new List<Guid>();
+                                                CalculateEdge(dto, abanodes, edge, newItems);
 
                                                 while (buildunits > 0)
                                                 {
-                                                    BuildingType typetobuild = BuildingType.Base;
-                                                    for (int i = 0; i < _engineConfigDto.Buildings.Count; i++)
-                                                    {
-                                                        double numb = 0;
-                                                        switch (_engineConfigDto.Buildings[i].BuildingType)
-                                                        {
-                                                            case BuildingType.FarmersGuild: numb = farms; break;
-                                                            case BuildingType.LumberMill: numb = mills; break;
-                                                            case BuildingType.Quarry: numb = quarries; break;
-                                                        }
-                                                        double woodbase = _engineConfigDto.Buildings[i].Cost.Wood;
-                                                        double stonebase = _engineConfigDto.Buildings[i].Cost.Stone;
-                                                        double goldbase = _engineConfigDto.Buildings[i].Cost.Gold;
-                                                        woodbase += 0.5 * numb * woodbase;
-                                                        stonebase += 0.5 * numb * stonebase;
-                                                        goldbase += 0.5 * numb * goldbase;
-                                                        double totalcost = (woodbase * wf) + (stonebase * sf) + (goldbase + gf);
-                                                        switch (_engineConfigDto.Buildings[i].BuildingType)
-                                                        {
-                                                            case BuildingType.FarmersGuild: farmcostcost = totalcost; break;
-                                                            case BuildingType.LumberMill: millcost = totalcost; break;
-                                                            case BuildingType.Quarry: quarrycost = totalcost; break;
-                                                        }
-                                                    }
-                                                    double buildingcount = 0;
-                                                    if (quarrycost < farmcostcost && quarrycost < millcost)
-                                                    {
-                                                        typetobuild = BuildingType.Quarry;
-                                                        
-                                                        buildingcount = quarries;
-                                                        quarries++;
-                                                    }
-                                                    else if (farmcostcost < millcost)
-                                                    {
-                                                        typetobuild = BuildingType.FarmersGuild;
-                                                        buildingcount = farms;
-                                                        farms++;
-                                                    }
-                                                    else
-                                                    {
-                                                        typetobuild = BuildingType.LumberMill;
-                                                        buildingcount = mills;
-                                                        mills++;
-                                                    }
-                                                    var buildingcost = _engineConfigDto.Buildings.FirstOrDefault(m => m.BuildingType == typetobuild).Cost;
-
-                                                    woodcost = buildingcost.Wood + 0.5 * buildingcount * buildingcost.Wood;
-                                                    stonecost = buildingcost.Stone + 0.5 * buildingcount * buildingcost.Stone;
-                                                    goldcost = buildingcost.Gold + 0.5 * buildingcount * buildingcost.Gold;
-
-                                                    if (dto.Wood - woodcost > NextTier.TierResourceConstraints.Wood*1.1
-                                                        && dto.Stone - stonecost > NextTier.TierResourceConstraints.Stone*1.05
-                                                        && dto.Gold - goldcost > NextTier.TierResourceConstraints.Gold*1.05
+                                                    //BuildingType typetobuild = BuildingType.Base;
+                                                    var CheapestBuilding = BuildingCost.Values.OrderBy(x => x.weightedCost).FirstOrDefault(m=>m.BuildingType!= BuildingType.Base);
+                                                    if (dto.Wood - CheapestBuilding.ActualCost.Wood > NextTier.TierResourceConstraints.Wood*1.1
+                                                        && dto.Stone - CheapestBuilding.ActualCost.Stone > NextTier.TierResourceConstraints.Stone*1.05
+                                                        && dto.Gold - CheapestBuilding.ActualCost.Gold > NextTier.TierResourceConstraints.Gold*1.05
                                                         )
                                                     {
                                                         //alternatively determine the building with the biggest score effect
@@ -714,37 +635,13 @@ namespace BitchAssBot.Services
                                                         {
 
                                                         }
-
-                                                        AvailableNode closestEdgenode = null;
-                                                        double closestdistance = 0;
-                                                        foreach (var x in edge.Values)
+                                                        CommandAction newAction = Build(edge, CheapestBuilding.BuildingType, ref buildunits);
+                                                        if (newAction!=null)
                                                         {
-                                                            if (closestEdgenode == null)
-                                                            {
-                                                                closestEdgenode = x;
-                                                                closestdistance = GetDistance(x);
-                                                            }
-                                                            else if (GetDistance(x) < closestdistance)
-                                                            {
-                                                                closestEdgenode = x;
-                                                                closestdistance = GetDistance(x);
-                                                            }
+                                                            newItems.Add(newAction.Id);
+                                                            edge.Remove(newAction.Position);
+                                                            playerCommand.Actions.Add(newAction);
                                                         }
-
-                                                        if (closestEdgenode != null)
-                                                        {
-                                                            newItems.Add(closestEdgenode.Id);
-                                                            edge.Remove(closestEdgenode.Position);
-                                                            playerCommand.Actions.Add(new CommandAction()
-                                                            {
-                                                                Type = Enum.Parse<ActionType>(typetobuild.ToString()),
-                                                                Id = closestEdgenode.Id,
-                                                                Units = 1                                                            
-                                                            });
-                                                            
-                                                            Log($"building {typetobuild.ToString()} at {closestEdgenode.Position.X}, {closestEdgenode.Position.Y}({closestEdgenode.Id}) Costing {woodcost} wood, {stonecost} stone, {goldcost} gold. BuildUnits: { buildunits } EdgePieces { edge.Count}");
-                                                        }
-                                                        buildunits--;
                                                     }
                                                     else
                                                     {
@@ -779,6 +676,8 @@ namespace BitchAssBot.Services
                                     heatunits += Math.Min(0, foodunits);
                                     heatunits += Math.Min(0, woodunits);
                                     heatunits += Math.Min(0, stoneunits);
+                                    //if (heatunits > units)
+                                    //    heatunits = units;
                                     if (heatunits > 0)
                                     {
                                         /*var NextTier = new */
@@ -797,7 +696,9 @@ namespace BitchAssBot.Services
                                             }
                                             if (dto.Wood- campfires * campfirecost-heatunits*campfirecost < requiredwood)
                                             {
-                                                heatunits = (int)((requiredwood - (double)dto.Wood - campfires * campfirecost) / campfirecost);
+                                                 double tmp = (int)((requiredwood - (double)dto.Wood - campfires * campfirecost) / campfirecost);
+                                                if (tmp > 0 && tmp < heatunits)
+                                                    heatunits = (int)tmp;
                                             }
                                             if (dto.Wood - campfires * campfirecost  < requiredwood)
                                             {
@@ -810,7 +711,15 @@ namespace BitchAssBot.Services
                                         heatunits = (int)Math.Min((double)heatunits, (double)((HeatRemaining - dto.Heat) / campfirereward));
                                         heatunits = (int)Math.Min((double)heatunits, Math.Floor(dto.Wood / campfirecost));
 
-                                        
+                                        unitsused = playerCommand.Actions.Sum(m => m.Units);
+                                        Log($"WHAT {unitsused} THE {heatunits} FUCK??? {dto.AvailableUnits}");
+                                        if (heatunits> dto.AvailableUnits- unitsused)
+                                        {
+                                            heatunits = Math.Max(0, dto.AvailableUnits - unitsused);
+                                        }
+                                        Log($"WHAT {unitsused} THE {heatunits} FUCK??? {dto.AvailableUnits}");
+
+
                                         if (heatunits > 0)
                                         {
                                             playerCommand.Actions.Add(new CommandAction()
@@ -818,6 +727,7 @@ namespace BitchAssBot.Services
                                                 Type = ActionType.StartCampfire,
                                                 Units = heatunits,
                                             });
+                                            Log($"{dto.Tick} Starting Campfire: {heatunits}");
                                         }
                                         
                                     }
@@ -830,12 +740,22 @@ namespace BitchAssBot.Services
                             {
 
                                 #region old 
-                                if (dto.Wood > 5 && dto.Food > 2 && !expand)
+                                if (dto.Tick%cycle==1)
+                                {
+                                    int unt = 1;
+                                    var Result = Scout(ref unt);
+                                    if (Result.Count > 0)
+                                        playerCommand.Actions.AddRange(Result);
+                                    units--;
+                                }
+                                //change this to trip expand once food drops below 2.1x population
+                                if (dto.Food<dto.Population*2.1 || dto.Heat<dto.Population*2.1 && !expand)
                                 {
                                     expand = true;
                                     Current = ResourceType.Food;
+                                    lastindex = 0;
                                 }
-                                if (expand && dto.Heat < dto.Population * 2.5)
+                                if (expand && dto.Heat < dto.Population * 2.5 && units>0)
                                 {
                                     Previouscampfires = campfires;
                                     campfires = Math.Min(Math.Max(dto.Population / 5 * 2, 1), units);
@@ -845,22 +765,49 @@ namespace BitchAssBot.Services
                                         Type = ActionType.StartCampfire,
                                         Units = campfires,
                                     });
+                                    Log($"{dto.Tick} Starting Campfire: {campfires}");
                                     units -= campfires;
                                 }
+                                
 
                                 int foodunits = 0;
                                 int woodunits = 0;
                                 int stoneunits = 0;
+                                int goldunits = 0;
+
+                                if (!expand && dto.Wood >= BuildingCost[BuildingType.LumberMill].ActualCost.Wood &&
+                                        dto.Stone >= BuildingCost[BuildingType.LumberMill].ActualCost.Stone &&
+                                        dto.Gold >= BuildingCost[BuildingType.LumberMill].ActualCost.Gold)
+                                {
+                                    CalculateEdge(dto, abanodes, edge, null);
+                                    playerCommand.Actions.Add(Build(edge, BuildingType.LumberMill,ref units));
+                                }
+                                else if (expand)
+                                {
+                                    if (dto.Wood - NextTier.TierResourceConstraints.Wood*1.2 >= BuildingCost[BuildingType.FarmersGuild].ActualCost.Wood &&
+                                        dto.Stone - NextTier.TierResourceConstraints.Stone*1.2 >= BuildingCost[BuildingType.FarmersGuild].ActualCost.Stone &&
+                                        dto.Gold - NextTier.TierResourceConstraints.Gold*1.2 >= BuildingCost[BuildingType.FarmersGuild].ActualCost.Gold)
+                                    {
+                                        CalculateEdge(dto, abanodes, edge, null);
+                                        playerCommand.Actions.Add(Build(edge, BuildingType.FarmersGuild, ref units));
+                                    }                                   
+                                }
+
                                 while (units > 0)
                                 {
-                                    switch (resourcerotation[lastindex++])
+                                    if (lastindex >= (expand ? resourcerotation.Length : resourcerotation2.Length))
+                                        lastindex = 0;
+                                    switch (expand ? resourcerotation[lastindex] : resourcerotation2[lastindex])
                                     {
                                         case ResourceType.Food: foodunits++; units--; break;
                                         case ResourceType.Wood: woodunits++; units--; break;
                                         case ResourceType.Heat: stoneunits++; units--; break;//actually stone
+                                        case ResourceType.Stone: stoneunits++; units--; break;//actually stone
+                                        case ResourceType.Gold: goldunits++; units--; break;//actually stone
                                     }
-                                    if (lastindex > (dto.Population > 20 ? 6 : 5))
-                                        lastindex = 0;
+                                    lastindex++;
+
+
                                 }
                                 var ClosetstNodes = nodes.Values.OrderBy(m => m.TravelTime).ToList();
 
@@ -896,6 +843,21 @@ namespace BitchAssBot.Services
                                         playerCommand.Actions.AddRange(Scout(ref stoneunits));
                                     }
                                 }
+                                if (goldunits > 0)
+                                {
+                                    var closestnode = ClosetstNodes.Find(m => m.Node.Type == ResourceType.Gold && m.Node.Amount > goldunits);
+                                    if (closestnode != null)
+                                    {
+                                        var tmpAction = MineNode(closestnode.Node, ref goldunits);
+                                        if (tmpAction != null)
+                                            playerCommand.Actions.Add(tmpAction);
+                                        units -= goldunits;
+                                    }
+                                    else
+                                    {
+                                        playerCommand.Actions.AddRange(Scout(ref goldunits));
+                                    }
+                                }
 
 
                                 #endregion
@@ -910,9 +872,13 @@ namespace BitchAssBot.Services
                             {
                                 if (units > 1)
                                 {
-                                    int unts = 2;
-                                    playerCommand.Actions.AddRange(Scout(ref unts));
+                                    playerCommand.Actions.AddRange(Scout(ref units));
                                 }
+                                else
+                                {
+                                    playerCommand.Actions.AddRange(Scout(ref units));
+                                }
+
                             }
                         }
                     }
@@ -930,9 +896,95 @@ namespace BitchAssBot.Services
             totalticks += wtch.ElapsedTicks;
             if (wtch.ElapsedTicks > maxprocticks)
                 maxprocticks = wtch.ElapsedTicks;
+            unitsused = playerCommand.Actions.Sum(m => m.Units);
+            Log($"Used units: {unitsused}   processed: {wtch.ElapsedMilliseconds}");
             return playerCommand;
         }
 
+        private void CalculateEdge(BotDto dto, Dictionary<Guid, AvailableNode> abanodes, Dictionary<Position, AvailableNode> edge, List<Guid> newItems)
+        {
+            
+            foreach (var x in abanodes.Values)
+            {
+
+                var pendingaction = dto.PendingActions.Find(m => m.TargetNodeId == x.Id);
+                var action = dto.Actions.Find(m => m.TargetNodeId == x.Id);
+                if (pendingaction == null
+                        && action == null
+                        && (!(newItems?.Contains(x.Id)??false)))
+                {
+                    for (int i = 1; i <= 4; i++)
+                    {
+                        var tmpPos = x.Position.checknext(i);
+                        var ExistingBuilding = dto.Buildings.Find(m => m.Position == tmpPos);
+                        if (!dto.Territory.Contains(tmpPos)
+                            && ExistingBuilding == null
+                            )
+                        {
+                            if (!edge.ContainsKey(x.Position))
+                                edge.Add(x.Position, x);
+                            break;
+
+                        }
+                    }
+                }
+                else
+                {
+
+                }
+            }
+        }
+
+        private CommandAction Build(Dictionary<Position,AvailableNode> edge, BuildingType type, ref int units)
+        {
+            AvailableNode closestEdgenode = null;
+            double closestdistance = 0;
+            foreach (var x in edge.Values)
+            {
+                if (closestEdgenode == null)
+                {
+                    closestEdgenode = x;
+                    closestdistance = GetDistance(x);
+                }
+                else if (GetDistance(x) < closestdistance)
+                {
+                    closestEdgenode = x;
+                    closestdistance = GetDistance(x);
+                }
+            }
+            units -= 1;
+            Log($"{this._bot.Tick}: Building {type.ToString()} at {closestEdgenode.Position.ToString()}({closestEdgenode.Id}) ");
+            BuildingCost[type].UpdateCosts(BuildingCost[type].NumBuildings + 1);
+            if (closestEdgenode==null || (closestEdgenode?.Id.ToString().StartsWith("00000000") ??false))
+            {
+
+            }
+            if(nodes.ContainsKey(closestEdgenode.Id) 
+                || _bot.Buildings.FirstOrDefault(m=>m.Id== closestEdgenode.Id)!=null 
+                || _bot.Buildings.FirstOrDefault(m=>m.Position == closestEdgenode.Position)!=null)
+            {
+                Log("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! FUCK OFF THEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+            }
+            AttemptedBuidings.Add(closestEdgenode.Position);
+            return new CommandAction()
+            {
+                Type = ActionType.FarmersGuild,
+                Id = closestEdgenode.Id,
+                Units = 1,
+                Position = closestEdgenode.Position
+            };
+        }
+
+      
+
+        private void LogDetails(BotDto dto,PopulationTier tier)
+        {
+            Log($"{DateTime.Now:HH:mm:ss ffff} Tier: {dto.CurrentTierLevel} ({tier.Level}) Population: {dto.Population} Units: {dto.AvailableUnits} Traveling FCUKED NODES {this._gameState.World.Map.Nodes.Count} TICK {dto.Tick} HEATCAP {HeatCap}".PadRight(10) +
+                            $"\r\nFood: {dto.Food} Wood: {dto.Wood} Stone: {dto.Stone} gold: {dto.Gold} Heat: {dto.Heat} Heat consume {HeatRemaining}".PadRight(10) +
+                            $"\r\nWoodamount {woodamount} {(booming ? "BOOMING" : "NOT     ")}".PadRight(10)
+
+                            );
+        }
 
         int CalcHeatLeft(int tick, double currentPop)
         {
@@ -1012,7 +1064,7 @@ namespace BitchAssBot.Services
             {
                 
                 var tmpTowers = OrderedTowers;
-                for (int i = 0; i < tmpTowers.Count && units > 0; i++)
+                for (int i = 0; i < tmpTowers.Count && units > 0 && scouts>=0; i++)
                 {
                     if (!towers.ContainsKey(tmpTowers[i].Id))
                         towers.Add(tmpTowers[i].Id, 0);
@@ -1023,7 +1075,7 @@ namespace BitchAssBot.Services
                         units--;
 
 
-                        Log($"Sending scouts to {this._gameState.World.Map.ScoutTowers[i].Id}");
+                        Log($"{this._bot.Tick}: Sending scouts to {this._gameState.World.Map.ScoutTowers[i].Id}");
                         actions.Add(new CommandAction()
                         {
                             Type = ActionType.Scout,
@@ -1034,8 +1086,8 @@ namespace BitchAssBot.Services
                     if (i + 1 == tmpTowers.Count)
                         scouts++;
                 }
-                if (scouts > 1)
-                    scouts = 0;
+                if (scouts > 0)
+                    scouts = -1;
                 return actions;
             }catch
             {
@@ -1137,6 +1189,11 @@ namespace BitchAssBot.Services
                     + (heatconsumption * (heatcost) * _engineConfigDto.ResourceScoreMultiplier.Wood)
                     + (stoneconsumption * _engineConfigDto.ResourceScoreMultiplier.Stone)) / cycle;
                 Haveeverything = true;
+
+                foreach (var x in _engineConfigDto.Buildings)
+                {   
+                    BuildingCost.Add(x.BuildingType, x);
+                }
             }
         }
         
@@ -1150,6 +1207,23 @@ namespace BitchAssBot.Services
                 try
                 {
                     System.IO.File.AppendAllText("log.txt", s + "\r\n");
+                }
+                catch
+                {
+
+                }
+            }
+        }
+        public static void fLog(string s)
+        {
+            if (console)
+                Console.WriteLine(s + "\r\n");
+
+            if (logging)
+            {
+                try
+                {
+                    System.IO.File.AppendAllText("flog.txt", s + "\r\n");
                 }
                 catch
                 {
@@ -1266,7 +1340,7 @@ namespace BitchAssBot.Services
             }
             PendingInstructions.Add(tmpInstruction);
 
-            //BotService.Log($"\r\nResource {node.Id.ToString()} type {node.Type.ToString()} worktime {node.WorkTime} Amount {node.Amount} Remaining {Remaining} Units {tmpInstruction.Units} Current Units: {node.CurrentUnits} maxunits: {node.MaxUnits}");
+            BotService.Log($"{tick}: Resource {node.Id.ToString()} type {node.Type.ToString()} worktime {node.WorkTime} Amount {node.Amount} Remaining {Remaining} Units {tmpInstruction.Units} Current Units: {node.CurrentUnits} maxunits: {node.MaxUnits}");
             
             return new CommandAction()
             {

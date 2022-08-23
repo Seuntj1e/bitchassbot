@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using BitchAssBot.Models;
 
 namespace BitchAssBot.Models
 {

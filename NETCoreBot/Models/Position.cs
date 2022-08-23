@@ -6,6 +6,10 @@ namespace BitchAssBot.Models
 {
     public class Position
     {
+        public override string ToString()
+        {
+            return $"({X},{Y})";
+        }
         public int X { get; set; }
         public int Y { get; set; }
 
@@ -18,12 +22,11 @@ namespace BitchAssBot.Models
         public Position()
         {
         }
-
         public Position checknext(int direction)
         {
             return new Position(this, direction);
         }
-        
+
         public Position(Position old, int direction)
         {
             this.X = old.X;
@@ -34,10 +37,10 @@ namespace BitchAssBot.Models
                 case 2: Y++; break;
                 case 3: X--; break;
                 case 4: Y--; break;
-                case 5: X++;Y++ ; break;
-                case 6: X++;Y-- ; break;
+                case 5: X++; Y++; break;
+                case 6: X++; Y--; break;
                 case 7: X--; Y++; break;
-                case 8: X--; Y-- ; break;
+                case 8: X--; Y--; break;
             }
         }
 
@@ -50,7 +53,7 @@ namespace BitchAssBot.Models
         {
             if (ReferenceEquals(null, obj)) return false;
             if (ReferenceEquals(this, obj)) return true;
-            if (obj.GetType() != this.GetType()) return false;
+            if (obj.GetType() != typeof(Position) && obj.GetType() != typeof(Land)) return false;
             return Equals((Position) obj);
         }
 
