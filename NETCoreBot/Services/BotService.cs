@@ -8,7 +8,7 @@ namespace BitchAssBot.Services
 {
     public class BotService
     {
-        static bool console = false;
+        static bool console = true;
         static bool logging = false;
         static bool everytick = false;
         public bool started = false;
@@ -712,12 +712,12 @@ namespace BitchAssBot.Services
                                         heatunits = (int)Math.Min((double)heatunits, Math.Floor(dto.Wood / campfirecost));
 
                                         unitsused = playerCommand.Actions.Sum(m => m.Units);
-                                        Log($"WHAT {unitsused} THE {heatunits} FUCK??? {dto.AvailableUnits}");
+//                                        Log($"WHAT {unitsused} THE {heatunits} FUCK??? {dto.AvailableUnits}");
                                         if (heatunits> dto.AvailableUnits- unitsused)
                                         {
                                             heatunits = Math.Max(0, dto.AvailableUnits - unitsused);
                                         }
-                                        Log($"WHAT {unitsused} THE {heatunits} FUCK??? {dto.AvailableUnits}");
+                                        //Log($"WHAT {unitsused} THE {heatunits} FUCK??? {dto.AvailableUnits}");
 
 
                                         if (heatunits > 0)
