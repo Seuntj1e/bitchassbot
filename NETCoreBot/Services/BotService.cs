@@ -10,7 +10,7 @@ namespace BitchAssBot.Services
     public class BotService
     {
         static bool console = true;
-        static bool logging = true;
+        static bool logging = false;
         static bool everytick = true;
         public bool started = false;
 
@@ -978,6 +978,10 @@ namespace BitchAssBot.Services
             List<Guid> newItems, HashSet<Land> Enemyborder, HashSet<Land> FriendlyBorder
             )
         {
+            if (abanodes.Count!=Territory.Count)
+            {
+
+            }
             foreach (var y in Territory.Keys)
             {
                 var x = Territory[y];
@@ -986,17 +990,15 @@ namespace BitchAssBot.Services
                 bool isborder = false;
                 for (int i = 1; i <= 4; i++)
                 {
-                    if (x.Position.X > 0 && x.Position.X < 39
-                        && x.Position.Y > 0 && x.Position.Y < 39)
+                    if (x.Position.X > 0 && x.Position.X < _gameState.World.Size-1
+                        && x.Position.Y > 0 && x.Position.Y < _gameState.World.Size - 1)
                     {
                         var tmpPos = x.Position.checknext(i);
                         var ExistingBuilding = dto.Buildings.Find(m => m.Position == tmpPos);
-                        if (!dto.Territory.Contains(tmpPos)
-                            && ExistingBuilding == null
-
-                            )
+                        if (!dto.Territory.Contains(tmpPos))
                         {
-                            isEdge = true;
+                            if ( ExistingBuilding == null)
+                                isEdge = true;
                             foreach (var z in _gameState.Bots.Where(m => m.Id != dto.Id))
                             {
                                 if (z.Territory.Contains(tmpPos))
@@ -1034,8 +1036,19 @@ namespace BitchAssBot.Services
                     }
                 }
             }
+            if (edge.Count == 0 && !clearedattempts)
+            {
+                clearedattempts = true;
+                AttemptedBuidings.Clear();
+            }
+            else if (edge.Count==0)
+            {
+                foreach (var x in abanodes)
+                    edge.Add(x.Value.Position, x.Value);
+            }
+            
         }
-
+        bool clearedattempts = false;
         private CommandAction Build(Dictionary<Position,AvailableNode> edge, BuildingType type, ref int units)
         {
             AvailableNode closestEdgenode = null;
@@ -1084,8 +1097,9 @@ namespace BitchAssBot.Services
         {
             Log($"{DateTime.Now:HH:mm:ss ffff} Tier: {dto.CurrentTierLevel} ({tier.Level}) Population: {dto.Population} Units: {dto.AvailableUnits} Traveling FCUKED NODES {this._gameState.World.Map.Nodes.Count} TICK {dto.Tick} HEATCAP {HeatCap}".PadRight(10) +
                             $"\r\nFood: {dto.Food} Wood: {dto.Wood} Stone: {dto.Stone} gold: {dto.Gold} Heat: {dto.Heat} Heat consume {HeatRemaining}".PadRight(10) +
-                            $"\r\nWoodamount {woodamount} {(booming ? "BOOMING" : "NOT     ")}".PadRight(10)
-
+                            $"\r\nWoodamount {woodamount} {(booming ? "BOOMING" : "NOT     ")}" +
+                            $"Buildings: {dto.Buildings.Count} attempted buildings: {AttemptedBuidings.Count}".PadRight(10)
+                            
                             );
         }
 
