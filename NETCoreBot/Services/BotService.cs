@@ -3,14 +3,15 @@ using BitchAssBot.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using static System.Collections.Specialized.BitVector32;
 
 namespace BitchAssBot.Services
 {
     public class BotService
     {
         static bool console = true;
-        static bool logging = false;
-        static bool everytick = false;
+        static bool logging = true;
+        static bool everytick = true;
         public bool started = false;
 
         public Guid Id;
@@ -111,20 +112,20 @@ namespace BitchAssBot.Services
                     Dictionary<Position, AvailableNode> territory = new Dictionary<Position, AvailableNode>();
                     Dictionary<Position, AvailableNode> edge = new Dictionary<Position, AvailableNode>();
                     Dictionary<Position, BuildingObject> buildings = new Dictionary<Position, BuildingObject>();
+                    HashSet<Land> FriendlyBorder = new HashSet<Land>();
+                    HashSet<Land> Enemyborder = new HashSet<Land>();
                     for (int i =0; i< _gameState.World.Map.AvailableNodes.Count;i++)
                     {
-                        if (dto.Territory.Contains(_gameState.World.Map.AvailableNodes[i].Position) 
-                            && !dto.Map.Nodes.Contains(_gameState.World.Map.AvailableNodes[i].Id)
-                            && !buildings.ContainsKey(_gameState.World.Map.AvailableNodes[i].Position)
-                            && !AttemptedBuidings.Contains(_gameState.World.Map.AvailableNodes[i].Position)
-                            )
+                        if (dto.Territory.Contains(_gameState.World.Map.AvailableNodes[i].Position) )
                         {
-                            if (_gameState.World.Map.AvailableNodes[i].Position.X==34 && _gameState.World.Map.AvailableNodes[i].Position.Y==31)
+                            Land tmp = dto.Territory.Find(m => m == _gameState.World.Map.AvailableNodes[i].Position) as Land;
+                            if ( !dto.Map.Nodes.Contains(_gameState.World.Map.AvailableNodes[i].Id)
+                            && !buildings.ContainsKey(tmp)
+                            && !AttemptedBuidings.Contains(tmp))                            
                             {
-
+                                    abanodes.Add(_gameState.World.Map.AvailableNodes[i].Id, _gameState.World.Map.AvailableNodes[i]);
                             }
-                            abanodes.Add(_gameState.World.Map.AvailableNodes[i].Id, _gameState.World.Map.AvailableNodes[i]);
-                            territory.Add(_gameState.World.Map.AvailableNodes[i].Position, _gameState.World.Map.AvailableNodes[i]);
+                            territory.Add(tmp, _gameState.World.Map.AvailableNodes[i]);
                         }
                     }
                     Dictionary<BuildingType, int> buildingcounts = new Dictionary<BuildingType, int>();
@@ -298,18 +299,22 @@ namespace BitchAssBot.Services
                                     int goldunits = 0;
                                     int heatunits = 0;
                                     int buildunits = 0;
+
+                                    int SlavaUkraine = 0; //Units available to defend own border
+                                    int Putinwouldbeproud = 0; //units available to invade other borders
+
                                     var requiredheat = (dto.Population * (10 / _engineConfigDto.ResourceImportance.Heat * CurrentTier.PopulationChangeFactorRange[1])) + dto.Population * 2;
-                                    var requiredwood = _engineConfigDto.PopulationTiers[dto.CurrentTierLevel].TierMaxResources.Wood> _engineConfigDto.PopulationTiers[6].TierResourceConstraints.Wood
+                                    var requiredwood = CurrentTier.TierMaxResources.Wood> _engineConfigDto.PopulationTiers[6].TierResourceConstraints.Wood
                                         &&  dto.CurrentTierLevel<6 ?
                                         _engineConfigDto.PopulationTiers[6].TierResourceConstraints.Wood*1.1:
-                                          _engineConfigDto.PopulationTiers[dto.CurrentTierLevel + 1].TierResourceConstraints.Wood * 1.1;
+                                          NextTier.TierResourceConstraints.Wood * 1.1;
 
                                     if (units >= 4)
                                     {
                                        
                                         heatunits = (int)Math.Ceiling((units * (hf / TotalWeight)));
                                         int MinHeats = (int)Math.Ceiling((((dto.Population * (booming ? 3 : 1.1) / heatconsumption) / 10) / campfirereward));
-                                       
+                                        Log($"Min heat {MinHeats}");
                                         if (heatunits < MinHeats)
                                         {
                                             heatunits = MinHeats;
@@ -600,7 +605,7 @@ namespace BitchAssBot.Services
                                                 }
                                                 index++;
                                             }
-                                            if (buildunits > 0)
+                                            if (buildunits > 0 && dto.Buildings.Count<60)
                                             {
                                                 //can build?
                                                 //determine cheapest building to build
@@ -610,7 +615,8 @@ namespace BitchAssBot.Services
                                                 }
                                                 
                                                List<Guid> newItems = new List<Guid>();
-                                                CalculateEdge(dto, abanodes, edge, newItems);
+                                                
+                                                CalculateEdge(dto, abanodes, territory, edge, newItems, FriendlyBorder, Enemyborder);
 
                                                 while (buildunits > 0)
                                                 {
@@ -642,6 +648,12 @@ namespace BitchAssBot.Services
                                                             edge.Remove(newAction.Position);
                                                             playerCommand.Actions.Add(newAction);
                                                         }
+                                                        else
+                                                        {
+                                                            units += buildunits;
+                                                            buildunits = 0;
+                                                        }
+
                                                     }
                                                     else
                                                     {
@@ -678,6 +690,7 @@ namespace BitchAssBot.Services
                                     heatunits += Math.Min(0, stoneunits);
                                     //if (heatunits > units)
                                     //    heatunits = units;
+                                    unitsused = playerCommand.Actions.Sum(m => m.Units);
                                     if (heatunits > 0)
                                     {
                                         /*var NextTier = new */
@@ -700,7 +713,7 @@ namespace BitchAssBot.Services
                                                 if (tmp > 0 && tmp < heatunits)
                                                     heatunits = (int)tmp;
                                             }
-                                            if (dto.Wood - campfires * campfirecost  < requiredwood)
+                                            if (dto.Wood - campfires * campfirecost  < requiredwood && dto.Heat>dto.Population*2)
                                             {
                                                 heatunits = 0;
                                                 Log("NEED WOOD!");
@@ -711,15 +724,15 @@ namespace BitchAssBot.Services
                                         heatunits = (int)Math.Min((double)heatunits, (double)((HeatRemaining - dto.Heat) / campfirereward));
                                         heatunits = (int)Math.Min((double)heatunits, Math.Floor(dto.Wood / campfirecost));
 
-                                        unitsused = playerCommand.Actions.Sum(m => m.Units);
-//                                        Log($"WHAT {unitsused} THE {heatunits} FUCK??? {dto.AvailableUnits}");
+                                       
+                                        Log($"WHAT {unitsused} THE {heatunits} FUCK??? {dto.AvailableUnits}");
                                         if (heatunits> dto.AvailableUnits- unitsused)
                                         {
                                             heatunits = Math.Max(0, dto.AvailableUnits - unitsused);
                                         }
-                                        //Log($"WHAT {unitsused} THE {heatunits} FUCK??? {dto.AvailableUnits}");
+                                        Log($"WHAT {unitsused} THE {heatunits} FUCK??? {dto.AvailableUnits}");
 
-
+                                        
                                         if (heatunits > 0)
                                         {
                                             playerCommand.Actions.Add(new CommandAction()
@@ -732,8 +745,43 @@ namespace BitchAssBot.Services
                                         
                                     }
                                     campfires = heatunits;
-                                    //Log($"\r\nff: {ff:0.0000}\twf: {wf:0.0000}\tsf: {sf:0.0000}\thf: {hf:0.0000}\r\n" +
-                                    //  $"fu: {playerCommand.Actions.Where(m => m.Type == ActionType.Farm).Sum(m => m.Units):00000}\twu: {playerCommand.Actions.Where(m => m.Type == ActionType.Lumber).Sum(m => m.Units):00000}\tsu: {playerCommand.Actions.Where(m => m.Type == ActionType.Mine).Sum(m => m.Units):00000}\thu: {playerCommand.Actions.Where(m => m.Type == ActionType.StartCampfire).Sum(m => m.Units):00000}\r\n");
+                                    SlavaUkraine = dto.AvailableUnits - unitsused - heatunits;
+                                    if (SlavaUkraine>0)
+                                    {
+                                        if (FriendlyBorder.Count==0 && edge.Count==0)
+                                        {
+                                            CalculateEdge(dto, abanodes, territory, edge, null, Enemyborder, FriendlyBorder);
+                                        }
+                                        //recall all units on nodes not on the boarder
+                                        foreach (var x in territory)
+                                        {
+                                            if (!FriendlyBorder.Contains(x.Key) && (x.Key as Land).Occupants.FirstOrDefault(m => m.BotId != dto.Id) ==null && (x.Key as Land).Occupants.FirstOrDefault(m => m.BotId != dto.Id)  != null)
+                                            {
+                                                Occupants ocs = (x.Key as Land).Occupants.FirstOrDefault(m => m.BotId == dto.Id);
+                                                CommandAction tmp = new CommandAction {
+                                                 Id=(x.Key as Land).NodeOnLand,
+                                                  Position=x.Key,
+                                                   Type= ActionType.LeaveLand,
+                                                    Units =ocs.Count
+                                                };
+                                                playerCommand.Actions.Add(tmp);
+                                            }
+                                        }
+                                        int i = 0;
+                                        //count the number of units currently at the border
+                                        //send up to 10 to each spot
+                                        //identify unoccupied tiles bordering another player territory and occupy them
+                                    }
+                                    if (Putinwouldbeproud>0)
+                                    {
+                                        if (Enemyborder.Count == 0 && edge.Count == 0)
+                                        {
+                                            CalculateEdge(dto, abanodes, territory, edge, null, Enemyborder, FriendlyBorder);
+                                        }
+                                        //identify other player borders and occupy them
+                                    }
+                                   Log($"\r\nff: {ff:0.0000}\twf: {wf:0.0000}\tsf: {sf:0.0000}\thf: {hf:0.0000}\r\n" +
+                                     $"fu: {playerCommand.Actions.Where(m => m.Type == ActionType.Farm).Sum(m => m.Units):00000}\twu: {playerCommand.Actions.Where(m => m.Type == ActionType.Lumber).Sum(m => m.Units):00000}\tsu: {playerCommand.Actions.Where(m => m.Type == ActionType.Mine).Sum(m => m.Units):00000}\thu: {playerCommand.Actions.Where(m => m.Type == ActionType.StartCampfire).Sum(m => m.Units):00000}\r\n");
                                 }
                             }
                             else
@@ -775,21 +823,27 @@ namespace BitchAssBot.Services
                                 int stoneunits = 0;
                                 int goldunits = 0;
 
-                                if (!expand && dto.Wood >= BuildingCost[BuildingType.LumberMill].ActualCost.Wood &&
-                                        dto.Stone >= BuildingCost[BuildingType.LumberMill].ActualCost.Stone &&
-                                        dto.Gold >= BuildingCost[BuildingType.LumberMill].ActualCost.Gold)
+                                if (!expand && dto.Wood >= BuildingCost[BuildingType.FarmersGuild].ActualCost.Wood &&
+                                        dto.Stone >= BuildingCost[BuildingType.FarmersGuild].ActualCost.Stone &&
+                                        dto.Gold >= BuildingCost[BuildingType.FarmersGuild].ActualCost.Gold && 
+                                        units>0)
                                 {
-                                    CalculateEdge(dto, abanodes, edge, null);
-                                    playerCommand.Actions.Add(Build(edge, BuildingType.LumberMill,ref units));
+                                    CalculateEdge(dto, abanodes, territory, edge, null, Enemyborder, FriendlyBorder );
+                                    var action = Build(edge, BuildingType.FarmersGuild, ref units);
+                                    if (action!=null)
+                                        playerCommand.Actions.Add(action);
                                 }
                                 else if (expand)
                                 {
                                     if (dto.Wood - NextTier.TierResourceConstraints.Wood*1.2 >= BuildingCost[BuildingType.FarmersGuild].ActualCost.Wood &&
                                         dto.Stone - NextTier.TierResourceConstraints.Stone*1.2 >= BuildingCost[BuildingType.FarmersGuild].ActualCost.Stone &&
-                                        dto.Gold - NextTier.TierResourceConstraints.Gold*1.2 >= BuildingCost[BuildingType.FarmersGuild].ActualCost.Gold)
+                                        dto.Gold - NextTier.TierResourceConstraints.Gold*1.2 >= BuildingCost[BuildingType.FarmersGuild].ActualCost.Gold && 
+                                        units > 0)
                                     {
-                                        CalculateEdge(dto, abanodes, edge, null);
-                                        playerCommand.Actions.Add(Build(edge, BuildingType.FarmersGuild, ref units));
+                                        CalculateEdge(dto, abanodes, territory, edge, null, Enemyborder, FriendlyBorder);                                        
+                                        var action = Build(edge, BuildingType.LumberMill, ref units);
+                                        if (action != null)
+                                            playerCommand.Actions.Add(action); 
                                     }                                   
                                 }
 
@@ -809,6 +863,22 @@ namespace BitchAssBot.Services
 
 
                                 }
+                                int extraUnits = 0;
+                                if (dto.Wood>=CurrentTier.TierMaxResources.Wood*0.8 && woodunits>2)
+                                {
+                                    extraUnits += woodunits-1;
+                                    woodunits = 1;
+                                }
+                                if (dto.Food >= NextTier.TierResourceConstraints.Food * 2)
+                                {
+                                    extraUnits += foodunits;
+                                    foodunits = 0;
+                                }
+
+                                int extra1 = extraUnits / 2;
+                                stoneunits += extra1;
+                                goldunits += extraUnits - extra1;
+                                
                                 var ClosetstNodes = nodes.Values.OrderBy(m => m.TravelTime).ToList();
 
                                 if (foodunits > 0)
@@ -901,36 +971,67 @@ namespace BitchAssBot.Services
             return playerCommand;
         }
 
-        private void CalculateEdge(BotDto dto, Dictionary<Guid, AvailableNode> abanodes, Dictionary<Position, AvailableNode> edge, List<Guid> newItems)
+        private void CalculateEdge(BotDto dto, 
+            Dictionary<Guid, AvailableNode> abanodes, 
+            Dictionary<Position, AvailableNode> Territory, 
+            Dictionary<Position, AvailableNode> edge, 
+            List<Guid> newItems, HashSet<Land> Enemyborder, HashSet<Land> FriendlyBorder
+            )
         {
-            
-            foreach (var x in abanodes.Values)
+            foreach (var y in Territory.Keys)
             {
-
-                var pendingaction = dto.PendingActions.Find(m => m.TargetNodeId == x.Id);
-                var action = dto.Actions.Find(m => m.TargetNodeId == x.Id);
-                if (pendingaction == null
-                        && action == null
-                        && (!(newItems?.Contains(x.Id)??false)))
+                var x = Territory[y];
+                //is edge piece?
+                bool isEdge = false;
+                bool isborder = false;
+                for (int i = 1; i <= 4; i++)
                 {
-                    for (int i = 1; i <= 4; i++)
+                    if (x.Position.X > 0 && x.Position.X < 39
+                        && x.Position.Y > 0 && x.Position.Y < 39)
                     {
                         var tmpPos = x.Position.checknext(i);
                         var ExistingBuilding = dto.Buildings.Find(m => m.Position == tmpPos);
                         if (!dto.Territory.Contains(tmpPos)
                             && ExistingBuilding == null
+
                             )
                         {
-                            if (!edge.ContainsKey(x.Position))
-                                edge.Add(x.Position, x);
-                            break;
-
+                            isEdge = true;
+                            foreach (var z in _gameState.Bots.Where(m => m.Id != dto.Id))
+                            {
+                                if (z.Territory.Contains(tmpPos))
+                                {
+                                    isborder = true;
+                                    if (!(Enemyborder.Contains(tmpPos)))
+                                        Enemyborder.Add(z.Territory.Find(m => m == tmpPos));
+                                }
+                            }
                         }
                     }
                 }
-                else
+                if (isEdge && !isborder)
                 {
+                    var pendingaction = dto.PendingActions.Find(m => m.TargetNodeId == x.Id);
+                    var action = dto.Actions.Find(m => m.TargetNodeId == x.Id);                    
+                    if (pendingaction == null
+                            && action == null
+                            && (!(newItems?.Contains(x.Id) ?? false))
+                            && abanodes.ContainsKey(x.Id)
+                            )
+                    {
+                        edge.Add(y, x);
+                    }
+                    else
+                    {
 
+                    }
+                }
+                if (isborder)
+                {
+                    if (!FriendlyBorder.Contains(y))
+                    {
+                        FriendlyBorder.Add(y as Land);
+                    }
                 }
             }
         }
@@ -952,6 +1053,8 @@ namespace BitchAssBot.Services
                     closestdistance = GetDistance(x);
                 }
             }
+            if (closestEdgenode==null)
+                return null;
             units -= 1;
             Log($"{this._bot.Tick}: Building {type.ToString()} at {closestEdgenode.Position.ToString()}({closestEdgenode.Id}) ");
             BuildingCost[type].UpdateCosts(BuildingCost[type].NumBuildings + 1);
@@ -1195,6 +1298,7 @@ namespace BitchAssBot.Services
                     BuildingCost.Add(x.BuildingType, x);
                 }
             }
+            
         }
         
         public static void Log(string s)
@@ -1315,7 +1419,8 @@ namespace BitchAssBot.Services
                     units = 0;
                     return null;
                 }
-                int availableUnits = node.MaxUnits;// - PendingInstructions.Where(m => m.ExpectedReturn > tick + TravelTime).Sum(m => m.Units);
+                
+                int availableUnits = node.MaxUnits - node.CurrentUnits;// - PendingInstructions.Where(m => m.ExpectedReturn > tick + TravelTime).Sum(m => m.Units);
                
                 if (availableUnits <= 0)
                 {
