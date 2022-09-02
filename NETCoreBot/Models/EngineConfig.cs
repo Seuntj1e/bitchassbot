@@ -161,7 +161,7 @@ namespace BitchAssBot.Models
         public double weightedCost { get; private set; }
         public void UpdateWeightedCost(double Wood, double Stone, double Gold)
         {
-            weightedCost = ActualCost.Wood * Wood + ActualCost.Stone * Stone + ActualCost.Gold * Gold;
+            weightedCost = (ActualCost.Wood) * Wood +( ActualCost.Stone * Stone) + (ActualCost.Gold * Gold);
         }
     }
 

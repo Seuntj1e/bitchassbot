@@ -143,10 +143,12 @@ namespace BitchAssBot.Services
                             if (!buildingcounts.ContainsKey((BuildingType)dto.PendingActions[i].ActionType))
                                 buildingcounts[(BuildingType)dto.PendingActions[i].ActionType] = 0;
                             buildingcounts[(BuildingType)dto.PendingActions[i].ActionType]++;
-                            BuildingCost[(BuildingType)dto.PendingActions[i].ActionType].UpdateCosts(buildingcounts[(BuildingType)dto.PendingActions[i].ActionType]);
+                            
                             dto.Wood -= BuildingCost[(BuildingType)dto.PendingActions[i].ActionType].ActualCost.Wood;
                             dto.Stone -= BuildingCost[(BuildingType)dto.PendingActions[i].ActionType].ActualCost.Stone;
                             dto.Gold -= BuildingCost[(BuildingType)dto.PendingActions[i].ActionType].ActualCost.Gold;
+
+                            BuildingCost[(BuildingType)dto.PendingActions[i].ActionType].UpdateCosts(buildingcounts[(BuildingType)dto.PendingActions[i].ActionType]);
                         }
                     }
                     for (int i = 0; i < dto.Actions.Count; i++)
@@ -155,10 +157,11 @@ namespace BitchAssBot.Services
                         {
                             if (!buildingcounts.ContainsKey((BuildingType)dto.Actions[i].ActionType))
                                 buildingcounts[(BuildingType)dto.Actions[i].ActionType] = 0;
-                            buildingcounts[(BuildingType)dto.Actions[i].ActionType]++;
+                            
                             dto.Wood -= BuildingCost[(BuildingType)dto.Actions[i].ActionType].ActualCost.Wood;
                             dto.Stone -= BuildingCost[(BuildingType)dto.Actions[i].ActionType].ActualCost.Stone;
                             dto.Gold -= BuildingCost[(BuildingType)dto.Actions[i].ActionType].ActualCost.Gold;
+                            buildingcounts[(BuildingType)dto.Actions[i].ActionType]++;
                         }
                     }
                     
@@ -1041,11 +1044,11 @@ namespace BitchAssBot.Services
                 clearedattempts = true;
                 AttemptedBuidings.Clear();
             }
-            else if (edge.Count==0)
+            /*else if (edge.Count==0)
             {
                 foreach (var x in abanodes)
                     edge.Add(x.Value.Position, x.Value);
-            }
+            }*/
             
         }
         bool clearedattempts = false;
@@ -1084,7 +1087,7 @@ namespace BitchAssBot.Services
             AttemptedBuidings.Add(closestEdgenode.Position);
             return new CommandAction()
             {
-                Type = ActionType.FarmersGuild,
+                Type = (ActionType)type,
                 Id = closestEdgenode.Id,
                 Units = 1,
                 Position = closestEdgenode.Position
