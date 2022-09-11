@@ -33,9 +33,9 @@ namespace BitchAssBot.Models
         public int Count { get; set; }
 
         public int Pressure { get; set; }
-        private double HomeGroundWeight { get; set; }
-        private int RadialWeight { get; }
-        private bool ownsLand;
+        public double HomeGroundWeight { get; set; }
+        public int RadialWeight { get; set; }
+        public bool ownsLand;
 
 
         public Occupants(double distanceFromBotBase, Guid botId)
@@ -59,7 +59,7 @@ namespace BitchAssBot.Models
             return ownsLand;
         }
 
-        private void CalculatePressure()
+        public void CalculatePressure()
         {
             var tempPressure = (Count + 1) * RadialWeight * (ownsLand ? HomeGroundWeight : 1);
             Pressure = (int)Math.Floor(tempPressure);
