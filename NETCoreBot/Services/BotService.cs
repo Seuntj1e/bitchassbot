@@ -1,4 +1,33 @@
-﻿using BitchAssBot.Enums;
+﻿/*
+Don't judge too harshly
+for most of this
+I could just barely
+keep open my eyes.
+lots of lines
+written and rewritten
+between midnight
+and copied and cut, and dusk.
+like the very unwise
+
+there is no structure
+or
+form
+and is not to be maintained
+//as clearly displayed
+//by the lack
+//of
+//strucutre
+//or form
+
+but enjoy this poem
+and later the song
+and remember
+judge !harshly
+slava Ukraine
+*/
+
+
+using BitchAssBot.Enums;
 using BitchAssBot.Models;
 using System;
 using System.Collections.Generic;
@@ -10,7 +39,7 @@ namespace BitchAssBot.Services
     public class BotService
     {
         static bool console = true;
-        static bool logging = true;
+        static bool logging = false;
         static bool everytick = true;
         public bool started = false;
 
@@ -110,11 +139,13 @@ namespace BitchAssBot.Services
                 {
                     issueing = true;
                     Dictionary<Guid, AvailableNode> abanodes = new Dictionary<Guid, AvailableNode>();
-                    Dictionary<Position, AvailableNode> territory = new Dictionary<Position, AvailableNode>();
+                    
                     Dictionary<Position, AvailableNode> edge = new Dictionary<Position, AvailableNode>();
                     Dictionary<Position, BuildingObject> buildings = new Dictionary<Position, BuildingObject>();
+                    List<Land> Occupiable = new List<Land>();
                     HashSet<Land> FriendlyBorder = new HashSet<Land>();
                     List<Land> Enemyborder = new List<Land>();
+                    List<Land> Occupied = new List<Land>();
                     for (int i =0; i< _gameState.World.Map.AvailableNodes.Count;i++)
                     {
                         if (dto.Territory.Contains(_gameState.World.Map.AvailableNodes[i].Position) )
@@ -126,7 +157,7 @@ namespace BitchAssBot.Services
                             {
                                     abanodes.Add(_gameState.World.Map.AvailableNodes[i].Id, _gameState.World.Map.AvailableNodes[i]);
                             }
-                            territory.Add(tmp, _gameState.World.Map.AvailableNodes[i]);
+                            //territory.Add(tmp, _gameState.World.Map.AvailableNodes[i]);
                         }
                     }
                     Dictionary<BuildingType, int> buildingcounts = new Dictionary<BuildingType, int>();
@@ -170,28 +201,32 @@ namespace BitchAssBot.Services
                         for (int i=0;i<_gameState.Bots.Count && !defend; i++)
                         {
                             var tbot = _gameState.Bots[i];
-                            if (tbot.Id != _bot.Id)
+                            if (tbot.Id != dto.Id)
                             {
-                                if (tbot.PendingActions != null)
+                                var count = tbot.Territory.Find(m => m.Occupants.Where(n=>n.BotId!=dto.Id).Sum(m=>m.Count) > 0 || m.Occupants.Count>1);
+                                if (count is null)
                                 {
-                                    if (tbot.PendingActions.Find(m => m.ActionType == ActionType.OccupyLand) != null)
-                                    {
-                                        defend = true;
-                                        break;
-                                    }
+
                                 }
-                                if (tbot.Actions != null)
+                                else
+                                {                                    
+                                    defend = true;
+                                    break;                                    
+                                }                                
+                            }
+                            foreach(var x in tbot.Territory.Where(n => n.Owner == dto.Id || (n.Occupants.FirstOrDefault(m => m.BotId == dto.Id)?.Count??0)>0))
+                            {
+                                if (x.Occupants.FirstOrDefault(m=>m.BotId==dto.Id)?.Count>0)
                                 {
-                                    if (tbot.Actions.Find(m => m.ActionType == ActionType.OccupyLand) != null)
-                                    {
-                                        defend = true;
-                                        break;
-                                    }
+                                    x.Occupied = true;
+                                    Occupied.Add(x);
                                 }
+                                Occupiable.Add(x);
                             }
                         }
                     }
-                    
+                    CalculateEdge(dto, abanodes, dto.Territory, edge , Enemyborder, FriendlyBorder);
+
                     var tmpNodes = nodes.Values.OrderByDescending(m => m.ResourceValue).ToList();
                     int units = dto.AvailableUnits;
                     var ownNodes = this._gameState.World.Map.Nodes.OrderBy(m => GetDistance(m)).ToList();
@@ -508,9 +543,8 @@ namespace BitchAssBot.Services
                                                     //get feedback from minenode as to hoy many are going and re-assign the rest
                                                     int uisedunits = stoneunits;
                                                     //get feedback from minenode as to hoy many are going and re-assign the rest
-                                                    var tmpAction = MineNode(closestnode.Node, ref uisedunits, dto.Territory.Find(m=>m.NodeOnLand== closestnode.Node.Id));
-                                                    if (tmpAction != null)
-                                                        playerCommand.Actions.Add(tmpAction);
+                                                    var tmpAction = MineNode(closestnode.Node, ref uisedunits, Occupiable.Find(m=>m.NodeOnLand== closestnode.Node.Id), playerCommand);
+                                                    
                                                     stoneunits -= uisedunits;
                                                 }
                                                 index++;
@@ -549,9 +583,8 @@ namespace BitchAssBot.Services
                                                     //get feedback from minenode as to hoy many are going and re-assign the rest
                                                     int uisedunits = goldunits;
                                                     //get feedback from minenode as to hoy many are going and re-assign the rest
-                                                    var tmpAction = MineNode(closestnode.Node, ref uisedunits, dto.Territory.Find(m => m.NodeOnLand == closestnode.Node.Id));
-                                                    if (tmpAction != null)
-                                                        playerCommand.Actions.Add(tmpAction);
+                                                    var tmpAction = MineNode(closestnode.Node, ref uisedunits, Occupiable.Find(m => m.NodeOnLand == closestnode.Node.Id), playerCommand);
+                                                   
                                                     goldunits -= uisedunits;
                                                 }
                                                 index++;
@@ -590,9 +623,8 @@ namespace BitchAssBot.Services
                                                 {
                                                     int uisedunits = foodunits;
                                                     //get feedback from minenode as to hoy many are going and re-assign the rest
-                                                    var tmpAction = MineNode(closestnode.Node, ref uisedunits, dto.Territory.Find(m => m.NodeOnLand == closestnode.Node.Id));
-                                                    if (tmpAction != null)
-                                                        playerCommand.Actions.Add(tmpAction);
+                                                    var tmpAction = MineNode(closestnode.Node, ref uisedunits, Occupiable.Find(m => m.NodeOnLand == closestnode.Node.Id), playerCommand);
+                                                    
                                                     foodunits -= uisedunits;
                                                 }
                                                 index++;
@@ -665,11 +697,11 @@ namespace BitchAssBot.Services
                                                     int uisedunits = woodunits;
                                                     //get feedback from minenode as to hoy many are going and re-assign the rest
 
-                                                    var tmpAction = MineNode(closestnode.Node, ref uisedunits, dto.Territory.Find(m => m.NodeOnLand == closestnode.Node.Id));
-                                                    if (tmpAction != null)
+                                                    var tmpAction = MineNode(closestnode.Node, ref uisedunits, Occupiable.Find(m => m.NodeOnLand == closestnode.Node.Id), playerCommand);
+                                                    if (tmpAction )
                                                     {
-                                                        newwood += tmpAction.Units * closestnode.Reward;
-                                                        playerCommand.Actions.Add(tmpAction);
+                                                        newwood += uisedunits * closestnode.Reward;
+                                                        
                                                     }
                                                     woodunits -= uisedunits;
                                                 }
@@ -686,12 +718,12 @@ namespace BitchAssBot.Services
                                                 
                                                List<Guid> newItems = new List<Guid>();
                                                 
-                                                CalculateEdge(dto, abanodes, territory, edge, newItems, Enemyborder, FriendlyBorder);
+                                                //CalculateEdge(dto, abanodes, territory, edge, newItems, Enemyborder, FriendlyBorder);
 
                                                 while (buildunits > 0)
                                                 {
                                                     //BuildingType typetobuild = BuildingType.Base;
-                                                    var CheapestBuilding = BuildingCost.Values.OrderBy(x => x.weightedCost).FirstOrDefault(m=>m.BuildingType!= BuildingType.Base && m.BuildingType!= BuildingType.Road && m.BuildingType!= BuildingType.OutPost);
+                                                    var CheapestBuilding = BuildingCost.Values.OrderBy(x => x.weightedCost).FirstOrDefault(m=>m.BuildingType!= BuildingType.Base);
                                                     if (dto.Wood - CheapestBuilding.ActualCost.Wood > NextTier.TierResourceConstraints.Wood*1.1
                                                         && dto.Stone - CheapestBuilding.ActualCost.Stone > NextTier.TierResourceConstraints.Stone*1.05
                                                         && dto.Gold - CheapestBuilding.ActualCost.Gold > NextTier.TierResourceConstraints.Gold*1.05
@@ -714,6 +746,10 @@ namespace BitchAssBot.Services
                                                         CommandAction newAction = Build(edge, CheapestBuilding.BuildingType, ref buildunits);
                                                         if (newAction!=null)
                                                         {
+                                                            dto.Wood -= CheapestBuilding.ActualCost.Wood;
+                                                            dto.Stone -= CheapestBuilding.ActualCost.Stone;
+                                                            dto.Gold -= CheapestBuilding.ActualCost.Gold;
+                                                            CheapestBuilding.UpdateCosts(CheapestBuilding.NumBuildings+1);
                                                             newItems.Add(newAction.Id);
                                                             edge.Remove(newAction.Position);
                                                             playerCommand.Actions.Add(newAction);
@@ -752,10 +788,10 @@ namespace BitchAssBot.Services
                                         {
                                             int uisedunits = units;
                                             //get feedback from minenode as to hoy many are going and re-assign the rest
-                                            var tmpAction = MineNode(Resources[i].Node, ref uisedunits, dto.Territory.Find(m => m.NodeOnLand == Resources[i].Node.Id));
-                                            if (tmpAction != null)
+                                            var tmpAction = MineNode(Resources[i].Node, ref uisedunits, Occupiable.Find(m => m.NodeOnLand == Resources[i].Node.Id), playerCommand);
+                                            if (tmpAction)
                                             {
-                                                playerCommand.Actions.Add(tmpAction);
+                                                //playerCommand.Actions.Add(tmpAction);
                                                 units -= uisedunits;
                                             }
                                         }
@@ -829,83 +865,91 @@ namespace BitchAssBot.Services
                                         Putinwouldbeproud = 0;
                                     if (SlavaUkraine>0 & defend)
                                     {
+                                        foreach (var x in Occupied)
+                                        {
+                                            if (nodes.ContainsKey(x.NodeOnLand) && nodes[x.NodeOnLand].Remaining<=100)
+                                            {
+                                                if (SlavaUkraine>0)
+                                                {
+                                                    var command = Leave(x);
+                                                    if (command!=null)
+                                                    {
+                                                        playerCommand.Actions.Add(command);
+                                                    }
+                                                }
+                                            }
+                                        }
+
                                         var TerritoryResources = new List<Land>();
                                         foreach(var x in dto.Territory)
                                         {
-                                            if (SlavaUkraine>0 )
+                                            if (SlavaUkraine > 0)
                                             {
                                                 var lnd = x;
                                                 //if (x.Key is Land lnd  )
                                                 {
                                                     if (nodes.ContainsKey(x.NodeOnLand))
                                                     {
-                                                        if (x.Owner != dto.Id && nodes[lnd.NodeOnLand].Remaining > 0)
+                                                        //If the snow glows white on the mountain tonight
+                                                        //not a footprint to be seen
+                                                        //a node for occupation
+                                                        //and territory inbetween
+                                                        //take this resource while the blizzard storms outside
+                                                        //gotta get keep that buff, even just for pride
+                                                        //dude, let me in
+                                                        //have you seen this toad
+                                                        if (
+                                                            (lnd.Occupants.FirstOrDefault(m => m.BotId == dto.Id)?.Count ?? 0) == 0
+                                                            && dto.PendingActions.Find(m => m.TargetNodeId == lnd.NodeOnLand && m.ActionType == ActionType.OccupyLand) == null
+                                                            && dto.Actions.Find(m => m.TargetNodeId == lnd.NodeOnLand && m.ActionType == ActionType.OccupyLand) == null
+                                                            && nodes[lnd.NodeOnLand].Remaining > 0
+                                                            )
                                                         {
-                                                            //this is my node, gtfo
-                                                            int maxPressure = 0;
-                                                            Occupants Self = null;
-                                                            foreach (var y in lnd.Occupants)
+                                                            var tmp = OccupyNode(lnd, 1);
+                                                            if (tmp != null)
                                                             {
-                                                                if (y.Pressure > maxPressure)
-                                                                    maxPressure = y.Pressure;
-                                                                if (y.BotId == dto.Id)
-                                                                    Self = y;
-                                                            }
-                                                            Self.RadialWeight = (int)Math.Floor(1 + 10 / (nodes[lnd.NodeOnLand].Distance + 0.01));
-                                                            var UnitsRequired = (int)Math.Ceiling((decimal)maxPressure / Self.RadialWeight);
-                                                            UnitsRequired -= (Self.Count + (dto.PendingActions.Find(m => m.TargetNodeId == lnd.NodeOnLand && m.ActionType == ActionType.OccupyLand)?.NumberOfUnits ?? 0) + (dto.Actions.Find(m => m.TargetNodeId == lnd.NodeOnLand && m.ActionType == ActionType.OccupyLand)?.NumberOfUnits ?? 0));
-                                                            if (SlavaUkraine > UnitsRequired)
-                                                            {
-                                                                var tmp = OccupyNode(lnd, UnitsRequired);
-                                                                if (tmp != null)
-                                                                {
-                                                                    SlavaUkraine -= UnitsRequired;
-                                                                    playerCommand.Actions.Add(tmp);
-                                                                }
+                                                                SlavaUkraine--;
+                                                                playerCommand.Actions.Add(tmp);
                                                             }
                                                         }
-                                                        else
+                                                        //if there are no more resources on this node
+                                                        //if it has a dude
+                                                        //gotta let them know
+                                                        //They have to know
+                                                        //let it go,
+                                                        //let it go
+                                                        //no use holding it anymore
+                                                        //let it go
+                                                        //let it go
+                                                        //turn away and slam the door
+                                                        //I don't care
+                                                        //what this node can pay
+                                                        //let the storm rage on
+                                                        //it can't give me any wood anyway
+                                                        else if (
+                                                            (lnd.Occupants.FirstOrDefault(m => m.BotId == dto.Id)?.Count ?? 0) > 0
+                                                            && nodes[lnd.NodeOnLand].Remaining <= 100
+                                                            && dto.PendingActions.Find(m => m.TargetNodeId == lnd.NodeOnLand && m.ActionType == ActionType.LeaveLand) == null
+                                                            && dto.Actions.Find(m => m.TargetNodeId == lnd.NodeOnLand && m.ActionType == ActionType.LeaveLand) == null)
                                                         {
-                                                            if (
-                                                                (lnd.Occupants.FirstOrDefault(m => m.BotId == dto.Id)?.Count??0)==0
-                                                                && dto.PendingActions.Find(m => m.TargetNodeId == lnd.NodeOnLand && m.ActionType == ActionType.OccupyLand) == null
-                                                                && dto.Actions.Find(m => m.TargetNodeId == lnd.NodeOnLand && m.ActionType == ActionType.OccupyLand) == null
-                                                                && nodes[lnd.NodeOnLand].Remaining > 0
-                                                                )
+                                                            var command = Leave(lnd);
+                                                            if (command != null)
                                                             {
-                                                                var tmp = OccupyNode(lnd, 1);
-                                                                if (tmp != null)
-                                                                {
-                                                                    SlavaUkraine--;
-                                                                    playerCommand.Actions.Add(tmp);
-                                                                }
-                                                            }
-                                                            else if (
-                                                                (lnd.Occupants.FirstOrDefault(m => m.BotId == dto.Id)?.Count ?? 0)> 0
-                                                                && nodes[lnd.NodeOnLand].Remaining==0
-                                                                && dto.PendingActions.Find(m => m.TargetNodeId == lnd.NodeOnLand && m.ActionType == ActionType.LeaveLand) == null
-                                                                && dto.Actions.Find(m => m.TargetNodeId == lnd.NodeOnLand && m.ActionType == ActionType.LeaveLand) == null)
-                                                            {
-                                                                var command = Leave(lnd);
-                                                                if (command != null)
-                                                                {
-                                                                    SlavaUkraine--;
-                                                                    playerCommand.Actions.Add(command);
-                                                                }
+                                                                SlavaUkraine--;
+                                                                playerCommand.Actions.Add(command);
                                                             }
                                                         }
+
                                                     }
                                                 }
                                             }
+                                            else break;
                                             if (dto.Territory[dto.Territory.Count-1] == x && !UnscoutedTowers())
                                             {
                                                 unprotectedNodes = false;
                                             }
                                         }
-                                        if (FriendlyBorder.Count==0 && edge.Count==0)
-                                        {
-                                            CalculateEdge(dto, abanodes, territory, edge, null, Enemyborder, FriendlyBorder);
-                                        }
+                                       
                                         //recall all units on nodes not on the boarder
                                         /*foreach (var x in territory)
                                         {
@@ -927,14 +971,13 @@ namespace BitchAssBot.Services
                                         //identify unoccupied tiles bordering another player territory and occupy them
                                     }
                                     Putinwouldbeproud += SlavaUkraine;
-                                   
-                                    if (Putinwouldbeproud>0)
+                                   if (Putinwouldbeproud>2)
+                                    {
+                                        //hello
+                                    }
+                                    if (Putinwouldbeproud>0 && Enemyborder.Count>0)
                                     {
                                        
-                                        if (Enemyborder.Count == 0 && edge.Count == 0)
-                                        {
-                                            CalculateEdge(dto, abanodes, territory, edge, null, Enemyborder, FriendlyBorder);
-                                        }
                                         
                                         for (int i = 0; i < Enemyborder.Count && Putinwouldbeproud>0; i++)
                                         {
@@ -1023,7 +1066,7 @@ namespace BitchAssBot.Services
                                         dto.Gold >= BuildingCost[BuildingType.FarmersGuild].ActualCost.Gold && 
                                         units>0)
                                 {
-                                    CalculateEdge(dto, abanodes, territory, edge, null, Enemyborder, FriendlyBorder );
+                                    //CalculateEdge(dto, abanodes, territory, edge, null, Enemyborder, FriendlyBorder );
                                     var action = Build(edge, BuildingType.FarmersGuild, ref units);
                                     if (action!=null)
                                         playerCommand.Actions.Add(action);
@@ -1035,7 +1078,7 @@ namespace BitchAssBot.Services
                                         dto.Gold - NextTier.TierResourceConstraints.Gold*1.2 >= BuildingCost[BuildingType.LumberMill].ActualCost.Gold && 
                                         units > 0)
                                     {
-                                        CalculateEdge(dto, abanodes, territory, edge, null, Enemyborder, FriendlyBorder);                                        
+                                        //CalculateEdge(dto, abanodes, territory, edge, null, Enemyborder, FriendlyBorder);                                        
                                         var action = Build(edge, BuildingType.LumberMill, ref units);
                                         if (action != null)
                                             playerCommand.Actions.Add(action); 
@@ -1079,18 +1122,16 @@ namespace BitchAssBot.Services
                                 if (foodunits > 0)
                                 {
                                     var closestnode = ClosetstNodes.Find(m => m.Node.Type == ResourceType.Food && m.Node.Amount > foodunits * m.Reward);
-                                    var tmpAction = MineNode(closestnode.Node, ref foodunits, dto.Territory.Find(m => m.NodeOnLand == closestnode.Node.Id));
-                                    if (tmpAction != null)
-                                        playerCommand.Actions.Add(tmpAction);
+                                    var tmpAction = MineNode(closestnode.Node, ref foodunits, Occupiable.Find(m => m.NodeOnLand == closestnode.Node.Id), playerCommand);
+                                   
                                     units -= foodunits;
 
                                 }
                                 if (woodunits > 0)
                                 {
                                     var closestnode = ClosetstNodes.Find(m => m.Node.Type == ResourceType.Wood && m.Node.Amount > woodunits * m.Reward);
-                                    var tmpAction = MineNode(closestnode.Node, ref woodunits, dto.Territory.Find(m => m.NodeOnLand == closestnode.Node.Id));
-                                    if (tmpAction != null)
-                                        playerCommand.Actions.Add(tmpAction);
+                                    var tmpAction = MineNode(closestnode.Node, ref woodunits, Occupiable.Find(m => m.NodeOnLand == closestnode.Node.Id), playerCommand);
+                                    
                                     units -= woodunits;
                                 }
                                 if (stoneunits > 0)
@@ -1098,9 +1139,8 @@ namespace BitchAssBot.Services
                                     var closestnode = ClosetstNodes.Find(m => m.Node.Type == ResourceType.Stone && m.Node.Amount > stoneunits);
                                     if (closestnode != null)
                                     {
-                                        var tmpAction = MineNode(closestnode.Node, ref stoneunits, dto.Territory.Find(m => m.NodeOnLand == closestnode.Node.Id));
-                                        if (tmpAction != null)
-                                            playerCommand.Actions.Add(tmpAction);
+                                        var tmpAction = MineNode(closestnode.Node, ref stoneunits, Occupiable.Find(m => m.NodeOnLand == closestnode.Node.Id), playerCommand);
+                                        
                                         units -= stoneunits;
                                     }
                                     else
@@ -1113,9 +1153,8 @@ namespace BitchAssBot.Services
                                     var closestnode = ClosetstNodes.Find(m => m.Node.Type == ResourceType.Gold && m.Node.Amount > goldunits);
                                     if (closestnode != null)
                                     {
-                                        var tmpAction = MineNode(closestnode.Node, ref goldunits, dto.Territory.Find(m => m.NodeOnLand == closestnode.Node.Id));
-                                        if (tmpAction != null)
-                                            playerCommand.Actions.Add(tmpAction);
+                                        var tmpAction = MineNode(closestnode.Node, ref goldunits, Occupiable.Find(m => m.NodeOnLand == closestnode.Node.Id), playerCommand);
+                                        
                                         units -= goldunits;
                                     }
                                     else
@@ -1172,27 +1211,67 @@ namespace BitchAssBot.Services
 
         private void CalculateEdge(BotDto dto, 
             Dictionary<Guid, AvailableNode> abanodes, 
-            Dictionary<Position, AvailableNode> Territory, 
-            Dictionary<Position, AvailableNode> edge, 
-            List<Guid> newItems, List<Land> Enemyborder, HashSet<Land> FriendlyBorder
+            List<Land> Territory, 
+            Dictionary<Position, AvailableNode> edge, List<Land> Enemyborder, HashSet<Land> FriendlyBorder
             )
         {
+            HashSet<Land> PendingTerritoryish = new HashSet<Land>();
+            for (int i = 0; i < _bot.PendingActions.Count; i++)
+            {
+                if ((int)_bot.PendingActions[i].ActionType >= 6 && (int)_bot.PendingActions[i].ActionType <= 10)
+                {
+                    Land tmpLand = Territory.Find(m => m.NodeOnLand == _bot.PendingActions[i].TargetNodeId);
+                    if (tmpLand != null)
+                    {
+                        var square = BuildingCost[(BuildingType)_bot.PendingActions[i].ActionType].TerritorySquare;
+                        for (int x = 0; x < square; x++)
+                        {
+                            for (int y = 0; y < square; y++)
+                            {
+                                var tmp = new Land { X = tmpLand.X + x, Y = tmpLand.Y + y };
+                                PendingTerritoryish.Add(tmp);
+                            }
+                        }
+                    }
+                }
+
+            }
+            for (int i = 0; i < _bot.Actions.Count; i++)
+            {
+                if ((int)_bot.Actions[i].ActionType >= 6 && (int)_bot.Actions[i].ActionType <= 10)
+                {
+                    Land tmpLand = Territory.Find(m => m.NodeOnLand == _bot.Actions[i].TargetNodeId);
+                    if (tmpLand != null)
+                    {
+                        var square = BuildingCost[(BuildingType)_bot.Actions[i].ActionType].TerritorySquare;
+                        for (int x = 0; x < square; x++)
+                        {
+                            for (int y = 0; y < square; y++)
+                            {
+                                var tmp = new Land { X = tmpLand.X + x, Y = tmpLand.Y + y };
+                                PendingTerritoryish.Add(tmp);
+                            }
+                        }
+                    }
+                }
+
+            }
             if (abanodes.Count!=Territory.Count)
             {
 
             }
-            foreach (var y in Territory.Keys)
+            foreach (var x in Territory)
             {
-                var x = Territory[y];
+                //var x = y;
                 //is edge piece?
                 bool isEdge = false;
                 bool isborder = false;
                 for (int i = 1; i <= 4; i++)
                 {
-                    if (x.Position.X > 0 && x.Position.X < _gameState.World.Size-1
-                        && x.Position.Y > 0 && x.Position.Y < _gameState.World.Size - 1)
+                    if (x.X > 0 && x.X < _gameState.World.Size-1
+                        && x.Y > 0 && x.Y < _gameState.World.Size - 1)
                     {
-                        var tmpPos = x.Position.checknext(i);
+                        var tmpPos = x.checknext(i);
                         var ExistingBuilding = dto.Buildings.Find(m => m.Position == tmpPos);
                         if (!dto.Territory.Contains(tmpPos))
                         {
@@ -1204,7 +1283,11 @@ namespace BitchAssBot.Services
                                 {
                                     isborder = true;
                                     if (!(Enemyborder.Contains(tmpPos)))
-                                        Enemyborder.Add(z.Territory.Find(m => m == tmpPos));
+                                    {
+                                        var tmp = z.Territory.Find(m => m == tmpPos);
+                                        tmp.EnemyBorder = true;
+                                        Enemyborder.Add(tmp);
+                                    }
                                 }
                             }
                         }
@@ -1212,15 +1295,16 @@ namespace BitchAssBot.Services
                 }
                 if (isEdge && !isborder)
                 {
-                    var pendingaction = dto.PendingActions.Find(m => m.TargetNodeId == x.Id);
-                    var action = dto.Actions.Find(m => m.TargetNodeId == x.Id);                    
+                    var pendingaction = dto.PendingActions.Find(m => m.TargetNodeId == x.NodeOnLand);
+                    var action = dto.Actions.Find(m => m.TargetNodeId == x.NodeOnLand);                    
                     if (pendingaction == null
                             && action == null
-                            && (!(newItems?.Contains(x.Id) ?? false))
-                            && abanodes.ContainsKey(x.Id)
+                            //&& (!(newItems?.Contains(x.NodeOnLand) ?? false))
+                            && abanodes.ContainsKey(x.NodeOnLand)
+                            && !PendingTerritoryish.Contains(x)
                             )
                     {
-                        edge.Add(y, x);
+                        edge.Add(x, abanodes[x.NodeOnLand]);
                     }
                     else
                     {
@@ -1229,9 +1313,9 @@ namespace BitchAssBot.Services
                 }
                 if (isborder)
                 {
-                    if (!FriendlyBorder.Contains(y))
+                    if (!FriendlyBorder.Contains(x))
                     {
-                        FriendlyBorder.Add(y as Land);
+                        FriendlyBorder.Add(x);
                     }
                 }
             }
@@ -1239,6 +1323,26 @@ namespace BitchAssBot.Services
             {
                 clearedattempts = true;
                 AttemptedBuidings.Clear();
+            }
+            for (int i = 0; i < _bot.PendingActions.Count;i++)
+            {
+                if ((int)_bot.PendingActions[i].ActionType >= 6 && (int)_bot.PendingActions[i].ActionType <= 10)
+                {
+                   
+                    for (int j = 1; j <= 4; j++)
+                    {
+                        var x = Territory.FirstOrDefault(m => m.NodeOnLand == _bot.PendingActions[i].TargetNodeId); 
+                        if (!(x is null))
+                        {
+                            var tmpPos = x.checknext(i);
+                            
+                            if (edge.ContainsKey(tmpPos))
+                            {
+                                
+                            }
+                        }
+                    }
+                }
             }
             /*else if (edge.Count==0)
             {
@@ -1254,6 +1358,10 @@ namespace BitchAssBot.Services
             if (Units <= 0)
                 return null;
             unprotectedNodes = true;
+            if ((Node.Occupants.FirstOrDefault(m=>m.BotId==_bot.Id)?.Count??0)+Units>Math.Min(10.0, ((double)_bot.Population)*0.01 ))//??
+            {
+                return null;
+            }
             return new CommandAction()
             {
                 Type =ActionType.OccupyLand,
@@ -1439,7 +1547,7 @@ namespace BitchAssBot.Services
                 return actions;
             }
         }
-        CommandAction MineNode(ResourceNode x, ref int Resources, Land InTerritory)
+        bool MineNode(ResourceNode x, ref int Resources, Land InTerritory, PlayerCommand Command)
         {
             nodestate tmpState = null;// new nodestate { Node = x, Units = Resources };
             nodes.TryGetValue(x.Id, out tmpState);
@@ -1448,14 +1556,57 @@ namespace BitchAssBot.Services
                 nodes.Add(x.Id, new nodestate(x, GetDistance(x)));
                 tmpState = nodes[x.Id];
             }
+            int occupyUsed = 0;
+            CommandAction Occupy=null;
             tmpState.Node = x;
             int buffmepls = 0;
             if (InTerritory != null)
             {
                 if (InTerritory.Owner == _bot.Id)
                     buffmepls = 1;
+                else
+                {
+                    buffmepls = -1;
+                }
+                if (InTerritory.Owner != _bot.Id)
+                {
+                    int maxPressure = 0;
+                    Occupants Self = null;
+                    foreach (var y in InTerritory.Occupants)
+                    {
+                        if (y.Pressure > maxPressure)
+                            maxPressure = y.Pressure;
+                        if (y.BotId == _bot.Id)
+                            Self = y;
+                    }
+                    Self.RadialWeight = (int)Math.Floor(1 + 10 / (nodes[InTerritory.NodeOnLand].Distance + 0.01));
+                    var UnitsRequired = (int)Math.Ceiling((decimal)maxPressure / Self.RadialWeight);
+                    UnitsRequired -= (Self.Count + (_bot.PendingActions.Find(m => m.TargetNodeId == InTerritory.NodeOnLand && m.ActionType == ActionType.OccupyLand)?.NumberOfUnits ?? 0) + (_bot.Actions.Find(m => m.TargetNodeId == InTerritory.NodeOnLand && m.ActionType == ActionType.OccupyLand)?.NumberOfUnits ?? 0));
+                    if (Resources > UnitsRequired && UnitsRequired > 0)
+                    {
+                        Occupy = OccupyNode(InTerritory, UnitsRequired);
+
+                        if (Occupy != null)
+                        {
+                            occupyUsed = UnitsRequired;
+                            Resources -= occupyUsed;
+                        }
+                    }
+                }
             }
-            return tmpState.AddAction(ref Resources, _bot.Tick, _bot.StatusMultiplier, buffmepls);
+            
+           
+            
+            var action = tmpState.AddAction(ref Resources, _bot.Tick, _bot.StatusMultiplier, buffmepls);
+            if (action!=null)
+            {
+                Resources += occupyUsed;
+                if (Occupy != null)
+                    Command.Actions.Add(Occupy);
+                Command.Actions.Add(action);
+                return true;
+            }
+            return false;
             
         }
 

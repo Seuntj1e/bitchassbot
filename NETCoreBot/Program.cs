@@ -119,7 +119,7 @@ namespace BitchAssBot
                         //Console.WriteLine(token);
                         Thread.Sleep(1000);
                         Console.WriteLine("Registering with the runner...");
-                        connection.SendAsync("Register", token, "Seuntj1e4");
+                        connection.SendAsync("Register", token, "Seuntj1e6");
 
                         while (connection.State == HubConnectionState.Connected)
                         {

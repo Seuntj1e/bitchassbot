@@ -25,6 +25,8 @@ namespace BitchAssBot.Models
         {
             return occupantsByBot;
         }
+        public bool EnemyBorder { get; set; }
+        public bool Occupied { get; set; }
     }
 
     public class Occupants

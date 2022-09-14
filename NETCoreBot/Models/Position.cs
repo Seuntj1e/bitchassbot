@@ -70,8 +70,11 @@ namespace BitchAssBot.Models
 
         public static bool operator != (Position position1, Position position2)
         {
-            if (position1 is null || position2 is null) return false;
-            return !(position1.Equals(position2));
+            if (position1 is null && position2 is null)
+                return false;
+            if ((position1 is null && position2 is not null) || (position1 is not null && position2 is null))
+                return true;
+            return !(position1==(position2));
         }
     }
 
