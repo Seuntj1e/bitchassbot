@@ -5,9 +5,10 @@ I could just barely
 keep open my eyes.
 lots of lines
 written and rewritten
-between midnight
-and copied and cut, and dusk.
 like the very unwise
+between midnight
+and copied and cut, and dawn.
+
 
 there is no structure
 or
@@ -25,8 +26,6 @@ and remember
 judge !harshly
 slava Ukraine
 */
-
-
 using BitchAssBot.Enums;
 using BitchAssBot.Models;
 using System;
